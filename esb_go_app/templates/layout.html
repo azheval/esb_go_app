@@ -1,0 +1,43 @@
+{{define "layout"}}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админ-панель ESB</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; background-color: #f0f2f5; }
+        header { background: #fff; padding: 10px 20px; border-bottom: 1px solid #ddd; font-size: 1.2em; font-weight: bold; }
+        main { max-width: 1200px; margin: 20px auto; padding: 20px; }
+        .container { background: #fff; padding: 2em; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        a { color: #007bff; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .btn { display: inline-block; padding: 10px 15px; background-color: #007bff; color: white; border-radius: 5px; text-align: center; border: none; cursor: pointer; }
+        .btn-danger { background-color: #dc3545; }
+        .btn:hover { opacity: 0.9; }
+        table { width: 100%; border-collapse: collapse; margin-top: 2em; }
+        th, td { border: 1px solid #ddd; padding: 0.8em; text-align: left; }
+        th { background-color: #f8f9fa; }
+        tr:nth-child(even) { background-color: #f8f9fa; }
+        code { background: #e9ecef; padding: 2px 4px; border-radius: 4px; }
+        .form-group { margin-bottom: 1em; }
+        label { display: block; margin-bottom: .5em; font-weight: bold; }
+        input[type="text"], select { width: 100%; padding: 0.8em; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .status-message { padding: 1em; margin-bottom: 1em; border-radius: 4px; }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    </style>
+</head>
+<body>
+    <header>
+        <a href="/admin" style="margin-right: 20px;">ESB Admin</a>
+		<a href="/admin/routes">Маршруты</a>
+    </header>
+    <main>
+        <div class="container">
+            {{template "content" .}}
+        </div>
+    </main>
+</body>
+</html>
+{{end}}

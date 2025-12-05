@@ -1,0 +1,73 @@
+{{define "content"}}
+<h1>Управление маршрутами</h1>
+<p>Здесь вы можете связывать исходящие (`outbound`) каналы одних приложений с входящими (`inbound`) каналами других.</p>
+
+{{if .StatusMessage}}
+<div class="status-message success">{{.StatusMessage}}</div>
+{{end}}
+{{if .ErrorMessage}}
+<div class="status-message error">{{.ErrorMessage}}</div>
+{{end}}
+
+<h2>Создать новый маршрут</h2>
+<form action="/admin/routes/create" method="post" style="margin-bottom: 2em;">
+    <div class="form-group">
+        <label for="source_channel_id">Из канала (Source Outbound)</label>
+        <select name="source_channel_id" id="source_channel_id" required>
+            <option value="">-- Выберите исходящий канал --</option>
+            {{range .OutboundChannels}}
+            <option value="{{.ID}}">{{.ApplicationName}} -> {{.Name}} (Dest: {{.Destination}})</option>
+            {{end}}
+        </select>
+    </div>
+    <div class="form-group">
+        <label for="destination_channel_id">В канал (Destination Inbound)</label>
+        <select name="destination_channel_id" id="destination_channel_id" required>
+            <option value="">-- Выберите входящий канал --</option>
+            {{range .InboundChannels}}
+            <option value="{{.ID}}">{{.ApplicationName}} -> {{.Name}} (Dest: {{.Destination}})</option>
+            {{end}}
+        </select>
+    </div>
+    <button type="submit" class="btn">Создать маршрут</button>
+</form>
+
+<h2>Существующие маршруты</h2>
+{{if .Routes}}
+<table>
+    <thead>
+        <tr>
+            <th>Источник (Outbound)</th>
+            <th>Назначение (Inbound)</th>
+            <th>Создан</th>
+            <th>Действие</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{range .Routes}}
+        <tr>
+            <td>
+                <strong>Приложение:</strong> {{.SourceAppName}}<br>
+                <strong>Канал:</strong> {{.SourceChannelName}}<br>
+                <small><code>{{.SourceDestination}}</code></small>
+            </td>
+            <td>
+                <strong>Приложение:</strong> {{.DestinationAppName}}<br>
+                <strong>Канал:</strong> {{.DestinationChannelName}}<br>
+                <small><code>{{.DestinationDestination}}</code></small>
+            </td>
+            <td>{{.CreatedAt.Format "2006-01-02 15:04:05"}}</td>
+            <td>
+                <form action="/admin/routes/delete/{{.ID}}" method="post" onsubmit="return confirm('Вы уверены, что хотите удалить этот маршрут?');">
+                    <button type="submit" class="btn btn-danger">Удалить</button>
+                </form>
+            </td>
+        </tr>
+        {{end}}
+    </tbody>
+</table>
+{{else}}
+<p>Пока не создано ни одного маршрута.</p>
+{{end}}
+
+{{end}}

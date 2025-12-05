@@ -1,0 +1,5 @@
+logs
+data
+# IDE settings
+.vscode/
+.idea/

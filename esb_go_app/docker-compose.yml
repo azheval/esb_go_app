@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  go-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - RABBITMQ_MANAGEMENT_ADDR=rabbitmq:15672
+    networks:
+      - esb_net
+    depends_on:
+      - rabbitmq
+    restart: always
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+
+  rabbitmq:
+    image: rabbitmq:3.9-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - esb_net
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+      - RABBITMQ_ENABLED_PLUGINS_FILE=/etc/rabbitmq/enabled_plugins
+    volumes:
+      - ./data:/var/lib/rabbitmq
+      - ./enabled_plugins:/etc/rabbitmq/enabled_plugins
+      - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
+    restart: always
+
+networks:
+  esb_net:
+    driver: bridge
