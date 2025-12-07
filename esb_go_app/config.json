@@ -2,6 +2,7 @@
   "port": "8080",
   "log_dir": "logs",
   "db_path": "data/esb.db",
+  "log_level": "info",
   "rabbitmq": {
     "dsn": "amqp://guest:guest@rabbitmq:5672/"
   }

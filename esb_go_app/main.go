@@ -29,7 +29,7 @@ func main() {
 		os.Exit(1)
 	}
 
-        log, err := logger.New(cfg.LogDir, version)
+        log, err := logger.New(cfg.LogDir, version, cfg.LogLevel)
         if err != nil {
                 slog.Error("failed to setup logger", "error", err)
                 os.Exit(1)

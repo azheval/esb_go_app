@@ -10,20 +10,22 @@ type RabbitMQConfig struct {
 	DSN string `json:"dsn"`
 }
 
-// Config определяет структуру файла конфигурации.
+// Config представляет структуру файла конфигурации.
 type Config struct {
 	Port     string         `json:"port"`
 	LogDir   string         `json:"log_dir"`
 	DBPath   string         `json:"db_path"`
+	LogLevel string         `json:"log_level"`
 	RabbitMQ RabbitMQConfig `json:"rabbitmq"`
 }
 
 // Load загружает конфигурацию из указанного файла.
 func Load(filePath string) (*Config, error) {
 	cfg := &Config{
-		Port:   "8080",
-		LogDir: "logs",
-		DBPath: "data/esb.db",
+		Port:     "8080",
+		LogDir:   "logs",
+		DBPath:   "data/esb.db",
+		LogLevel: "info", // Default log level
 		RabbitMQ: RabbitMQConfig{
 			DSN: "amqp://guest:guest@localhost:5672/",
 		},
