@@ -7,7 +7,7 @@ import (
 )
 
 // New создает и настраивает экземпляр логгера slog.
-func New(logDir string) (*slog.Logger, error) {
+func New(logDir, version string) (*slog.Logger, error) {
 	// Создаем директорию, если она не существует
 	if err := os.MkdirAll(logDir, 0755); err != nil {
 		return nil, err
@@ -26,7 +26,7 @@ func New(logDir string) (*slog.Logger, error) {
 		AddSource: true,           // Добавлять в лог информацию о файле и строке кода
 	})
 
-	// Создаем и возвращаем новый логгер
-	logger := slog.New(handler)
+	// Создаем логгер и добавляем в него постоянный атрибут "version"
+	logger := slog.New(handler).With("version", version)
 	return logger, nil
 }

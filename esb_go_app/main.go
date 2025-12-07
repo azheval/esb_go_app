@@ -17,6 +17,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+var version = "development"
+
 func main() {
 	configPath := flag.String("config", "config.json", "path to config file")
 	flag.Parse()
@@ -27,13 +29,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	log, err := logger.New(cfg.LogDir)
-	if err != nil {
-		slog.Error("failed to setup logger", "error", err)
-		os.Exit(1)
-	}
-	log.Info("logger initialized successfully")
-	log.Info("config loaded", "port", cfg.Port, "log_dir", cfg.LogDir, "db_path", cfg.DBPath, "rabbitmq_dsn", cfg.RabbitMQ.DSN)
+        log, err := logger.New(cfg.LogDir, version)
+        if err != nil {
+                slog.Error("failed to setup logger", "error", err)
+                os.Exit(1)
+        }
+        log.Info("logger initialized successfully")
+        log.Info("config loaded", "port", cfg.Port, "log_dir", cfg.LogDir, "db_path", cfg.DBPath, "rabbitmq_dsn", cfg.RabbitMQ.DSN)
 
 	dataStore, err := storage.NewStore(cfg.DBPath, log)
 	if err != nil {
