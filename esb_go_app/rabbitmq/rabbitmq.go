@@ -198,11 +198,10 @@ func (r *RabbitMQ) collectMessages(sourceQueue, destExchange string) error {
 	// Убеждаемся, что временная очередь существует. Если нет, это не ошибка,
 	// консьюмер просто будет ждать ее появления.
 	// Этот declare нужен, чтобы избежать ошибок, если 1С еще не создала очередь.
-	_, err = ch.QueueDeclare(sourceQueue, false, false, false, false, nil)
+	_, err = ch.QueueDeclarePassive(sourceQueue, false, false, false, false, nil)
 	if err != nil {
-		return fmt.Errorf("cannot declare source queue '%s': %w", sourceQueue, err)
+		return fmt.Errorf("source queue '%s' does not exist yet or cannot be declared: %w", sourceQueue, err)
 	}
-
 	msgs, err := ch.Consume(sourceQueue, "", false, false, false, false, nil)
 	if err != nil {
 		return fmt.Errorf("failed to register a consumer for '%s': %w", sourceQueue, err)
