@@ -3,3 +3,5 @@ data
 # IDE settings
 .vscode/
 .idea/
+.chglog
+git-chglog.exe
