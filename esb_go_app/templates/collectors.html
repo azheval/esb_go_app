@@ -1,0 +1,81 @@
+{{define "content"}}
+<h1>Управление сборщиками</h1>
+<p>Сборщики - это автономные скрипты, которые запускаются по расписанию для получения данных из внешних источников и публикации их во внутренний канал.</p>
+
+{{if .StatusMessage}}
+<div class="status-message success">{{.StatusMessage}}</div>
+{{end}}
+{{if .ErrorMessage}}
+<div class="status-message error">{{.ErrorMessage}}</div>
+{{end}}
+
+<h2>Создать нового сборщика</h2>
+<form action="/admin/collectors/create" method="post" style="margin-bottom: 2em;">
+    <div class="form-group">
+        <label for="name">Название</label>
+        <input type="text" name="name" id="name" required>
+    </div>
+    <div class="form-group">
+        <label for="schedule">Расписание (Cron)</label>
+        <input type="text" name="schedule" id="schedule" required placeholder="*/5 * * * *">
+    </div>
+    <div class="form-group">
+        <label for="integration_id">Интеграция (опционально)</label>
+        <select name="integration_id" id="integration_id">
+            <option value="">-- Нет --</option>
+            {{range .Integrations}}
+            <option value="{{.ID}}">{{.Name}}</option>
+            {{end}}
+        </select>
+    </div>
+    <div class="form-group">
+        <label for="engine">Движок</label>
+        <select name="engine" id="engine" required>
+            <option value="javascript">JavaScript (Goja)</option>
+            <option value="starlark">Starlark (Python-like)</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label for="script">Скрипт</label>
+        <textarea name="script" id="script" rows="15" style="width: 100%; font-family: monospace;"></textarea>
+    </div>
+    <button type="submit" class="btn">Создать сборщика</button>
+</form>
+
+<h2>Существующие сборщики</h2>
+{{if .Collectors}}
+<table>
+    <thead>
+        <tr>
+            <th>Название</th>
+            <th>Расписание</th>
+            <th>Интеграция</th>
+            <th>Движок</th>
+            <th>Создан</th>
+            <th>Действие</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{range .Collectors}}
+        <tr>
+            <td>
+                <a href="/admin/collectors/{{.ID}}">{{.Name}}</a>
+            </td>
+            <td><code>{{.Schedule}}</code></td>
+            <td>{{if .IntegrationID}}{{.IntegrationID}}{{else}}N/A{{end}}</td>
+            <td>{{.Engine}}</td>
+            <td>{{.CreatedAt.Format "2006-01-02 15:04:05"}}</td>
+            <td>
+                <form action="/admin/collectors/{{.ID}}/delete" method="post" onsubmit="return confirm('Вы уверены, что хотите удалить этого сборщика?');">
+                    <button type="submit" class="btn btn-danger">Удалить</button>
+                </form>
+            </td>
+        </tr>
+        {{end}}
+    </tbody>
+</table>
+{{else}}
+<p>Пока не создано ни одного сборщика.</p>
+{{end}}
+
+{{end}}

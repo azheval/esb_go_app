@@ -5,18 +5,22 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
+
+	"github.com/lestrrat-go/file-rotatelogs"
 )
 
-// New создает и настраивает экземпляр логгера slog.
 func New(logDir, version, logLevel string) (*slog.Logger, error) {
-	// Создаем директорию, если она не существует
 	if err := os.MkdirAll(logDir, 0755); err != nil {
 		return nil, err
 	}
 
-	// Создаем или открываем файл для логов
-	logPath := filepath.Join(logDir, "esb_go_app.log")
-	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	logPattern := filepath.Join(logDir, "esb_go_app-%Y-%m-%d-%H.log")
+	logf, err := rotatelogs.New(
+		logPattern,
+		rotatelogs.WithMaxAge(7*24*time.Hour),
+		rotatelogs.WithRotationTime(time.Hour),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -35,13 +39,11 @@ func New(logDir, version, logLevel string) (*slog.Logger, error) {
 		level = slog.LevelInfo
 	}
 
-	// Создаем JSON-обработчик, который будет писать в файл
-	handler := slog.NewJSONHandler(logFile, &slog.HandlerOptions{
-		Level:     level, // Уровень логирования (Info, Debug, Warn, Error)
-		AddSource: true,  // Добавлять в лог информацию о файле и строке кода
+	handler := slog.NewJSONHandler(logf, &slog.HandlerOptions{
+		Level:     level,
+		AddSource: true,
 	})
 
-	// Создаем логгер и добавляем в него постоянный атрибут "version"
 	logger := slog.New(handler).With("version", version)
 	return logger, nil
 }

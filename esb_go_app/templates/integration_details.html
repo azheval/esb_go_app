@@ -1,0 +1,87 @@
+{{define "content"}}
+    <a href="/admin/integrations">&larr; Назад к списку интеграций</a>
+
+    {{if .Integration}}
+    <h1>Интеграция: {{.Integration.Name}}</h1>
+    <p>{{.Integration.Description}}</p>
+
+    <h2 style="margin-top: 2em;">Диаграмма процесса</h2>
+    <div class="mermaid-container">
+        <pre class="mermaid">
+            {{.MermaidDiagram}}
+        </pre>
+    </div>
+
+
+    <h2 style="margin-top: 2em;">Сборщики</h2>
+    {{if .Collectors}}
+    <table>
+        <thead>
+            <tr>
+                <th>Название</th>
+                <th>Расписание</th>
+                <th>Движок</th>
+                <th>Создан</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Collectors}}
+            <tr>
+                <td><a href="/admin/collectors/{{.ID}}">{{.Name}}</a></td>
+                <td><code>{{.Schedule}}</code></td>
+                <td>{{.Engine}}</td>
+                <td>{{.CreatedAt.Format "2006-01-02 15:04:05"}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    {{else}}
+    <p>Для этой интеграции нет сборщиков.</p>
+    {{end}}
+
+    <h2 style="margin-top: 2em;">Маршруты</h2>
+    {{if .Routes}}
+    <table>
+        <thead>
+            <tr>
+                <th>Название</th>
+                <th>Источник</th>
+                <th>Назначение / Трансформация</th>
+                <th>Тип</th>
+                <th>Создан</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Routes}}
+            <tr>
+                <td><a href="/admin/routes/{{.ID}}">{{.Name}}</a></td>
+                <td>
+                    <strong>{{.SourceAppName}}</strong><br>
+                    <small>{{.SourceChannelName}}</small>
+                </td>
+                <td>
+                    {{if .TransformationID}}
+                        <strong>Трансформация:</strong> {{.TransformationName}}<br>
+                        <hr style="margin: 5px 0; border-color: #eee;">
+                    {{end}}
+                    <strong>{{.DestinationAppName}}</strong><br>
+                    <small>{{.DestinationChannelName}}</small>
+                </td>
+                <td>{{.RouteType}}</td>
+                <td>{{.CreatedAt.Format "2006-01-02 15:04:05"}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    {{else}}
+    <p>Для этой интеграции нет маршрутов.</p>
+    {{end}}
+
+    {{else}}
+    <p>Интеграция не найдена.</p>
+    {{end}}
+<script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({ startOnLoad: true });
+</script>
+{{end}}

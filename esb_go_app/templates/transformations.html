@@ -1,0 +1,64 @@
+{{define "content"}}
+<h1>Управление трансформациями</h1>
+<p>Здесь вы можете создавать и управлять скриптами трансформации сообщений.</p>
+
+{{if .StatusMessage}}
+<div class="status-message success">{{.StatusMessage}}</div>
+{{end}}
+{{if .ErrorMessage}}
+<div class="status-message error">{{.ErrorMessage}}</div>
+{{end}}
+
+<h2>Создать новую трансформацию</h2>
+<form action="/admin/transformations/create" method="post" style="margin-bottom: 2em;">
+    <div class="form-group">
+        <label for="name">Название</label>
+        <input type="text" name="name" id="name" required>
+    </div>
+    <div class="form-group">
+        <label for="engine">Движок</label>
+        <select name="engine" id="engine" required>
+            <option value="javascript">JavaScript (Goja)</option>
+            <option value="starlark">Starlark (Python-like)</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label for="script">Скрипт</label>
+        <textarea name="script" id="script" rows="15" style="width: 100%; font-family: monospace;"></textarea>
+    </div>
+    <button type="submit" class="btn">Создать трансформацию</button>
+</form>
+
+<h2>Существующие трансформации</h2>
+{{if .Transformations}}
+<table>
+    <thead>
+        <tr>
+            <th>Название</th>
+            <th>Движок</th>
+            <th>Создан</th>
+            <th>Действие</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{range .Transformations}}
+        <tr>
+            <td>
+                <a href="/admin/transformations/{{.ID}}">{{.Name}}</a>
+            </td>
+            <td>{{.Engine}}</td>
+            <td>{{.CreatedAt.Format "2006-01-02 15:04:05"}}</td>
+            <td>
+                <form action="/admin/transformations/{{.ID}}/delete" method="post" onsubmit="return confirm('Вы уверены, что хотите удалить эту трансформацию?');">
+                    <button type="submit" class="btn btn-danger">Удалить</button>
+                </form>
+            </td>
+        </tr>
+        {{end}}
+    </tbody>
+</table>
+{{else}}
+<p>Пока не создано ни одной трансформации.</p>
+{{end}}
+
+{{end}}

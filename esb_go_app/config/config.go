@@ -5,12 +5,13 @@ import (
 	"os"
 )
 
-// RabbitMQConfig содержит конфигурацию для RabbitMQ.
 type RabbitMQConfig struct {
-	DSN string `json:"dsn"`
+	DSN            string `json:"dsn"`
+	ManagementDSN  string `json:"management_dsn"`
+	ManagementUser string `json:"management_user"`
+	ManagementPass string `json:"management_pass"`
 }
 
-// Config представляет структуру файла конфигурации.
 type Config struct {
 	Port     string         `json:"port"`
 	LogDir   string         `json:"log_dir"`
@@ -19,15 +20,17 @@ type Config struct {
 	RabbitMQ RabbitMQConfig `json:"rabbitmq"`
 }
 
-// Load загружает конфигурацию из указанного файла.
 func Load(filePath string) (*Config, error) {
 	cfg := &Config{
 		Port:     "8080",
 		LogDir:   "logs",
 		DBPath:   "data/esb.db",
-		LogLevel: "info", // Default log level
+		LogLevel: "info",
 		RabbitMQ: RabbitMQConfig{
-			DSN: "amqp://guest:guest@localhost:5672/",
+			DSN:            "amqp://guest:guest@rabbitmq:5672/",
+			ManagementDSN:  "http://rabbitmq:15672",
+			ManagementUser: "guest",
+			ManagementPass: "guest",
 		},
 	}
 
@@ -46,6 +49,9 @@ func Load(filePath string) (*Config, error) {
 
 	if dsn := os.Getenv("RABBITMQ_DSN"); dsn != "" {
 		cfg.RabbitMQ.DSN = dsn
+	}
+	if mdsn := os.Getenv("RABBITMQ_MANAGEMENT_DSN"); mdsn != "" {
+		cfg.RabbitMQ.ManagementDSN = mdsn
 	}
 
 	return cfg, nil

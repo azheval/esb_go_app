@@ -1,0 +1,121 @@
+{{define "content"}}
+    <a href="/admin/routes">&larr; Назад к списку маршрутов</a>
+
+    {{if .Route}}
+    <h1>Маршрут: {{.Route.Name}}</h1>
+    <p>ID: <code>{{.Route.ID}}</code></p>
+
+    <h2 style="margin-top: 2em;">Детали маршрута</h2>
+    <table>
+        <tr>
+            <th>Источник</th>
+            <td>
+                <strong>Приложение:</strong> {{.Route.SourceAppName}}<br>
+                <strong>Канал:</strong> {{.Route.SourceChannelName}}<br>
+                <small><code>{{.Route.SourceDestination}}</code></small>
+            </td>
+        </tr>
+        <tr>
+            <th>Назначение</th>
+            <td>
+                <strong>Приложение:</strong> {{.Route.DestinationAppName}}<br>
+                <strong>Канал:</strong> {{.Route.DestinationChannelName}}<br>
+                <small><code>{{.Route.DestinationDestination}}</code></small>
+            </td>
+        </tr>
+        <tr><th>Тип</th><td>{{.Route.RouteType}}</td></tr>
+        {{if .Route.TransformationID}}
+        <tr>
+            <th>Трансформация</th>
+            <td>
+                <strong>Название:</strong> {{.Route.TransformationName}}<br>
+                <small>ID: <code>{{.Route.TransformationID}}</code></small>
+            </td>
+        </tr>
+        {{end}}
+        <tr><th>Интеграция</th><td>{{if .Route.IntegrationName}}{{.Route.IntegrationName}}{{else}}N/A{{end}}</td></tr>
+        <tr><th>Создан</th><td>{{.Route.CreatedAt.Format "2006-01-02 15:04:05"}}</td></tr>
+    </table>
+
+    {{/* Edit Form */}}
+    <h2 style="margin-top: 2em;">Редактировать Маршрут</h2>
+    <form action="/admin/routes/{{.Route.ID}}/edit" method="POST">
+        <div class="form-group">
+            <label for="name">Имя маршрута:</label>
+            <input type="text" id="name" name="name" value="{{.Route.Name}}" required>
+        </div>
+
+        <div class="form-group">
+            <label for="source_channel_id">Исходный канал:</label>
+            <select id="source_channel_id" name="source_channel_id" required>
+                {{range .InboundChannels}}
+                    <option value="{{.ID}}" {{if eq .ID $.Route.SourceChannelID}}selected{{end}}>{{.ApplicationName}} - {{.Name}} ({{.Destination}})</option>
+                {{end}}
+                {{range .RouteSources}}
+                    <option value="{{.ID}}" {{if eq .ID $.Route.SourceChannelID}}selected{{end}}>{{.Name}}</option>
+                {{end}}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="destination_channel_id">Канал назначения:</label>
+            <select id="destination_channel_id" name="destination_channel_id" required>
+                {{range .DestinationChannels}}
+                    <option value="{{.ID}}" {{if eq .ID $.Route.DestinationChannelID}}selected{{end}}>{{.ApplicationName}} - {{.Name}} ({{.Destination}})</option>
+                {{end}}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="route_type">Тип маршрута:</label>
+            <select id="route_type" name="route_type" required onchange="toggleTransformation()">
+                <option value="direct" {{if eq .Route.RouteType "direct"}}selected{{end}}>Прямой</option>
+                <option value="transform" {{if eq .Route.RouteType "transform"}}selected{{end}}>Трансформация</option>
+            </select>
+        </div>
+
+        <div class="form-group" id="transformation-group" {{if ne .Route.RouteType "transform"}}style="display:none;"{{end}}>
+            <label for="transformation_id">Трансформация:</label>
+            <select id="transformation_id" name="transformation_id">
+                <option value="">-- Выберите трансформацию --</option>
+                {{range .Transformations}}
+                    <option value="{{.ID}}" {{if eq .ID $.Route.TransformationID}}selected{{end}}>{{.Name}}</option>
+                {{end}}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="integration_id">Интеграция:</label>
+            <select id="integration_id" name="integration_id">
+                <option value="">-- Без интеграции --</option>
+                {{range .Integrations}}
+                    <option value="{{.ID}}" {{if eq .ID $.Route.IntegrationID}}selected{{end}}>{{.Name}}</option>
+                {{end}}
+            </select>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Обновить маршрут</button>
+    </form>
+
+    <script>
+        function toggleTransformation() {
+            var routeType = document.getElementById("route_type").value;
+            var transformationGroup = document.getElementById("transformation-group");
+            var transformationIdSelect = document.getElementById("transformation_id");
+
+            if (routeType === "transform") {
+                transformationGroup.style.display = "block";
+                transformationIdSelect.setAttribute("required", "required");
+            } else {
+                transformationGroup.style.display = "none";
+                transformationIdSelect.removeAttribute("required");
+                transformationIdSelect.value = ""; // Clear selected transformation
+            }
+        }
+        document.addEventListener('DOMContentLoaded', toggleTransformation); // Call on page load
+    </script>
+
+    {{else}}
+    <p>Маршрут не найден.</p>
+    {{end}}
+{{end}}

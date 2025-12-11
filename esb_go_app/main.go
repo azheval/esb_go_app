@@ -1,23 +1,27 @@
 package main
 
 import (
-	"esb-go-app/admin"
-	"esb-go-app/api"
-	"esb-go-app/config"
-	"esb-go-app/logger"
-	"esb-go-app/metrics"
-	"esb-go-app/rabbitmq"
-	"esb-go-app/storage"
 	"flag"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 
+	"esb-go-app/admin"
+	"esb-go-app/api"
+	"esb-go-app/collector"
+	"esb-go-app/config"
+	"esb-go-app/logger"
+	"esb-go-app/metrics"
+	"esb-go-app/rabbitmq"
+	"esb-go-app/scripting"
+	"esb-go-app/storage"
+
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/robfig/cron/v3"
 )
 
-var version = "development"
+var version = "2.0.0"
 
 func main() {
 	configPath := flag.String("config", "config.json", "path to config file")
@@ -29,13 +33,13 @@ func main() {
 		os.Exit(1)
 	}
 
-        log, err := logger.New(cfg.LogDir, version, cfg.LogLevel)
-        if err != nil {
-                slog.Error("failed to setup logger", "error", err)
-                os.Exit(1)
-        }
-        log.Info("logger initialized successfully")
-        log.Info("config loaded", "port", cfg.Port, "log_dir", cfg.LogDir, "db_path", cfg.DBPath, "rabbitmq_dsn", cfg.RabbitMQ.DSN)
+	log, err := logger.New(cfg.LogDir, version, cfg.LogLevel)
+	if err != nil {
+		slog.Error("failed to setup logger", "error", err)
+		os.Exit(1)
+	}
+	log.Info("logger initialized successfully")
+	log.Info("config loaded", "port", cfg.Port, "log_dir", cfg.LogDir, "db_path", cfg.DBPath, "rabbitmq_dsn", cfg.RabbitMQ.DSN)
 
 	dataStore, err := storage.NewStore(cfg.DBPath, log)
 	if err != nil {
@@ -45,14 +49,18 @@ func main() {
 	defer dataStore.Close()
 	log.Info("data store initialized")
 
-	rmq, err := rabbitmq.New(&cfg.RabbitMQ, log)
+	scriptingHTTPClient := scripting.NewHTTPClient(log)
+	scriptingService := scripting.NewService(log, scriptingHTTPClient, dataStore)
+
+	rmq, err := rabbitmq.New(&cfg.RabbitMQ, log, dataStore, scriptingService)
 	if err != nil {
 		log.Error("failed to connect to rabbitmq", "error", err)
 		os.Exit(1)
 	}
 	defer rmq.Close()
 
-	// Инициализация воркеров для существующих каналов при старте
+	collectorService := collector.NewService(dataStore, scriptingService, rmq, log)
+
 	log.Info("initializing workers for existing channels...")
 	apps, err := dataStore.GetAllApplications()
 	if err != nil {
@@ -83,29 +91,47 @@ func main() {
 	}
 	log.Info("worker initialization complete")
 
-	// Инициализация маршрутизаторов для связывания очередей
 	log.Info("initializing routers for existing routes...")
 	routes, err := dataStore.GetAllRoutes()
 	if err != nil {
 		log.Error("failed to get routes for router init", "error", err)
 	} else {
 		for _, route := range routes {
-			log.Info("starting router worker",
-				"from_app", route.SourceAppName,
-				"from_channel", route.SourceChannelName,
-				"to_app", route.DestinationAppName,
-				"to_channel", route.DestinationChannelName)
-			rmq.StartRouter(route.SourceDestination, route.DestinationDestination)
+			log.Info("starting router worker", "route_id", route.ID, "source_id", route.SourceChannelID, "route_type", route.RouteType, "route_name", route.Name)
+			if route.SourceChannelID != "" {
+				rmq.StartRouter(route.ID, route.Name, route.SourceChannelID)
+			} else {
+				log.Error("route missing source channel ID, skipping router start", "route_id", route.ID)
+			}
 		}
 	}
 	log.Info("router initialization complete")
 
+	log.Info("initializing collectors...")
+	c := cron.New()
+	collectors, err := dataStore.GetAllCollectors()
+	if err != nil {
+		log.Error("failed to get collectors", "error", err)
+	} else {
+		for _, coll := range collectors {
+			// Capture the collector in a local variable for the closure
+			collectorToRun := coll
+			_, err := c.AddFunc(collectorToRun.Schedule, func() {
+				collectorService.RunCollector(collectorToRun.ID)
+			})
+			if err != nil {
+				log.Error("failed to add collector to scheduler", "collector_id", collectorToRun.ID, "collector_name", collectorToRun.Name, "error", err)
+			}
+		}
+	}
+	c.Start()
+	log.Info("collectors scheduled", "count", len(collectors))
+
 	mux := http.NewServeMux()
+	adminHandler := admin.NewHandler(dataStore, rmq, log, scriptingService, version)
+	apiHandler := api.NewHandler(dataStore, rmq, log, scriptingService)
 
-	adminHandler := admin.NewHandler(dataStore, rmq, log)
-	apiHandler := api.NewHandler(dataStore, rmq, log)
-
-	metrics.Register() // Register metrics
+	metrics.Register()
 
 	mux.Handle("/admin", adminHandler)
 	mux.Handle("/admin/", adminHandler)

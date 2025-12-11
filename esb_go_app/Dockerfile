@@ -9,11 +9,14 @@ RUN go mod download
 COPY . .
 
 # Pass the version number as a build argument: --build-arg VERSION=v1.0.0
-ARG VERSION="1.1.0"
+ARG VERSION="2.0.0"
 RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags "-s -w -X main.version=${VERSION}" -o /app/main .
 
 
 FROM alpine:latest
+
+# Install tzdata package for timezone support
+RUN apk add --no-cache tzdata
 
 WORKDIR /app
 

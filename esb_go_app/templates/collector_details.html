@@ -1,0 +1,107 @@
+{{define "content"}}
+<h1>Редактирование сборщика</h1>
+<p>Здесь вы можете изменить существующий сборщик данных.</p>
+
+{{if .ErrorMessage}}
+<div class="status-message error">{{.ErrorMessage}}</div>
+{{end}}
+
+{{if .Collector}}
+<form action="/admin/collectors/{{.Collector.ID}}/update" method="post" style="margin-bottom: 2em;">
+    <div class="form-group">
+        <label for="name">Название</label>
+        <input type="text" name="name" id="name" required value="{{.Collector.Name}}">
+    </div>
+    <div class="form-group">
+        <label for="schedule">Расписание (Cron)</label>
+        <input type="text" name="schedule" id="schedule" required placeholder="*/5 * * * *" value="{{.Collector.Schedule}}">
+    </div>
+    <div class="form-group">
+        <label for="integration_id">Интеграция (опционально)</label>
+        <select name="integration_id" id="integration_id">
+            <option value="">-- Нет --</option>
+            {{range .Integrations}}
+            <option value="{{.ID}}" {{if eq .ID $.SelectedIntegrationID}}selected{{end}}>{{.Name}}</option>
+            {{end}}
+        </select>
+    </div>
+    <div class="form-group">
+        <label for="engine">Движок</label>
+        <select name="engine" id="engine" required>
+            <option value="javascript" {{if eq .Collector.Engine "javascript"}}selected{{end}}>JavaScript (Goja)</option>
+            <option value="starlark" {{if eq .Collector.Engine "starlark"}}selected{{end}}>Starlark (Python-like)</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label for="script">Скрипт</label>
+        <textarea name="script" id="script" rows="15" style="width: 100%; font-family: monospace;">{{.Collector.Script}}</textarea>
+    </div>
+    <button type="submit" class="btn">Сохранить изменения</button>
+</form>
+
+<details style="margin-top: 2em; border: 1px solid #ccc; padding: 10px; border-radius: 5px;">
+    <summary style="font-weight: bold; cursor: pointer; padding-bottom: 5px;">Помощь по написанию скриптов для сборщиков</summary>
+    <p>Скрипты сборщиков используются для получения данных из внешних источников и их публикации в систему ESB. Скрипт должен вернуть массив JSON-объектов. Каждый объект в массиве будет опубликован как отдельное сообщение.</p>
+
+    <h4>Основные принципы:</h4>
+    <ul>
+        <li><strong>Возвращаемое значение:</strong> Скрипт <strong>обязательно</strong> должен возвращать JSON-совместимый массив или одиночный JSON-объект. Например, <code>[{"key": "value"}, {"another_key": "another_value"}]</code> или <code>{"another_key": "another_value"}</code>. Если скрипт возвращает <code>null</code> или не возвращает ничего, сообщения не будут опубликованы.</li>
+        <li><strong>Публикация сообщений:</strong> Ваша задача — только получить и структурировать данные. Публикацию сообщений в RabbitMQ осуществляет сам сборщик.</li>
+        <li><strong>Обработка ошибок:</strong> Любые ошибки, возникающие в процессе выполнения скрипта, будут регистрироваться в логах ESB.</li>
+        <li><strong>Доступные глобальные объекты:</strong>
+            <ul>
+                <li><code>log</code>: Объект для логирования информации в консоль ESB (например, <code>log.info("Мое сообщение")</code>, <code>log.warn("Предупреждение")</code>, <code>log.error("Ошибка")</code>).</li>
+                <li><code>fetch</code> (только для JavaScript): Функция для выполнения HTTP-запросов. Возвращает объект с полями <code>status</code> (число) и <code>json()</code> (функция для парсинга тела ответа).</li>
+                <li><code>http</code> (только для Starlark): Объект с методами <code>get(url)</code>, <code>post(url, body, headers)</code> и т.д. Возвращает объект с полями <code>status_code</code> (число) и <code>json()</code> (функция для парсинга тела ответа).</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h4>Примеры скриптов:</h4>
+
+    <h5>JavaScript (Goja)</h5>
+    <p>Пример получения данных из внешнего API и возврата списка объектов:</p>
+    <pre><code class="language-javascript">
+        function execute() {
+            // Выполняем HTTP GET запрос
+            var response = fetch('https://api.exchangerate-api.com/v4/latest/USD');
+
+            // Проверяем статус ответа
+            if (response.status === 200) {
+                var data = response.json(); // Парсим JSON ответ
+                log.info("Получены данные: " + JSON.stringify(data));
+                return data; // Возвращаем массив объектов
+            } else {
+                log.error("Ошибка при получении данных: " + response.status);
+                return null; // В случае ошибки возвращаем null, чтобы не публиковать сообщение
+            }
+        }
+
+        // Скрипт должен возвращать функцию execute или сразу результат
+        execute();
+    </code></pre>
+
+    <h5>Starlark (Python-подобный)</h5>
+    <p>Пример получения данных из внешнего API и возврата списка объектов:</p>
+    <pre><code class="language-python">
+        def collect():
+            # Основная логика скрипта
+            response = http.get(url="https://api.exchangerate-api.com/v4/latest/USD")
+
+            if response.status_code == 200:
+                data = response.json()
+                log.info("Получены данные: %s" % data)
+                data # Возвращаем данные
+            else:
+                log.error("Ошибка при получении данных: %s" % response.status_code)
+                None # Возвращаем None, чтобы не публиковать сообщение
+    </code></pre>
+
+    <p><strong>Важно:</strong> Для выполнения HTTP-запросов в Starlark используется глобальный объект <code>http</code>. Для JavaScript используется глобальная функция <code>fetch</code>.</p>
+</details>
+
+{{else}}
+<p>Сборщик не найден.</p>
+{{end}}
+
+{{end}}

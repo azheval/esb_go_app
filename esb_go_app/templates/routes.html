@@ -12,23 +12,56 @@
 <h2>Создать новый маршрут</h2>
 <form action="/admin/routes/create" method="post" style="margin-bottom: 2em;">
     <div class="form-group">
-        <label for="source_channel_id">Из канала (Source Outbound)</label>
-        <select name="source_channel_id" id="source_channel_id" required>
-            <option value="">-- Выберите исходящий канал --</option>
-            {{range .OutboundChannels}}
-            <option value="{{.ID}}">{{.ApplicationName}} -> {{.Name}} (Dest: {{.Destination}})</option>
+        <label for="name">Название маршрута:</label>
+        <input type="text" name="name" id="name" required>
+    </div>
+    <div class="form-group">
+        <label for="integration_id">Интеграция (опционально)</label>
+        <select name="integration_id" id="integration_id">
+            <option value="">-- Нет --</option>
+            {{range .Integrations}}
+            <option value="{{.ID}}">{{.Name}}</option>
             {{end}}
         </select>
     </div>
     <div class="form-group">
-        <label for="destination_channel_id">В канал (Destination Inbound)</label>
-        <select name="destination_channel_id" id="destination_channel_id" required>
+        <label for="source_channel_id">Из канала (Source)</label>
+        <select name="source_channel_id" id="source_channel_id" required>
+            <option value="">-- Выберите источник --</option>
+            {{range .RouteSources}}
+            <option value="{{.ID}}">{{.Name}}</option>
+            {{end}}
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="route_type">Тип маршрута</label>
+        <select name="route_type" id="route_type" onchange="toggleRouteFields()">
+            <option value="direct">Прямой (Direct)</option>
+            <option value="transform">С трансформацией (Transform)</option>
+        </select>
+    </div>
+
+    <div id="transform-route-fields" class="form-group" style="display: none;">
+        <label for="transformation_id">Трансформация</label>
+        <select name="transformation_id" id="transformation_id">
+            <option value="">-- Выберите трансформацию --</option>
+            {{range .Transformations}}
+            <option value="{{.ID}}">{{.Name}} ({{.Engine}})</option>
+            {{end}}
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="destination_channel_id">В канал (Destination)</label>
+        <select name="destination_channel_id" id="destination_channel_id">
             <option value="">-- Выберите входящий канал --</option>
             {{range .InboundChannels}}
             <option value="{{.ID}}">{{.ApplicationName}} -> {{.Name}} (Dest: {{.Destination}})</option>
             {{end}}
         </select>
     </div>
+
     <button type="submit" class="btn">Создать маршрут</button>
 </form>
 
@@ -37,8 +70,11 @@
 <table>
     <thead>
         <tr>
-            <th>Источник (Outbound)</th>
-            <th>Назначение (Inbound)</th>
+            <th>Название</th>
+            <th>Источник</th>
+            <th>Назначение / Трансформация</th>
+            <th>Тип</th>
+            <th>Интеграция</th>
             <th>Создан</th>
             <th>Действие</th>
         </tr>
@@ -46,19 +82,24 @@
     <tbody>
         {{range .Routes}}
         <tr>
+            <td><a href="/admin/routes/{{.ID}}">{{.Name}}</a></td>
             <td>
-                <strong>Приложение:</strong> {{.SourceAppName}}<br>
-                <strong>Канал:</strong> {{.SourceChannelName}}<br>
-                <small><code>{{.SourceDestination}}</code></small>
+                <strong>{{.SourceAppName}}</strong><br>
+                <small>{{.SourceChannelName}}</small>
             </td>
             <td>
-                <strong>Приложение:</strong> {{.DestinationAppName}}<br>
-                <strong>Канал:</strong> {{.DestinationChannelName}}<br>
-                <small><code>{{.DestinationDestination}}</code></small>
+                {{if .TransformationID}}
+                    <strong>Трансформация:</strong> {{.TransformationName}}<br>
+                    <hr style="margin: 5px 0; border-color: #eee;">
+                {{end}}
+                <strong>{{.DestinationAppName}}</strong><br>
+                <small>{{.DestinationChannelName}}</small>
             </td>
+            <td>{{.RouteType}}</td>
+            <td>{{if .IntegrationName}}{{.IntegrationName}}{{else}}N/A{{end}}</td>
             <td>{{.CreatedAt.Format "2006-01-02 15:04:05"}}</td>
             <td>
-                <form action="/admin/routes/delete/{{.ID}}" method="post" onsubmit="return confirm('Вы уверены, что хотите удалить этот маршрут?');">
+                <form action="/admin/routes/{{.ID}}/delete" method="post" onsubmit="return confirm('Вы уверены, что хотите удалить этот маршрут?');">
                     <button type="submit" class="btn btn-danger">Удалить</button>
                 </form>
             </td>
@@ -69,5 +110,26 @@
 {{else}}
 <p>Пока не создано ни одного маршрута.</p>
 {{end}}
+
+<script>
+    function toggleRouteFields() {
+        const routeType = document.getElementById('route_type').value;
+        const transformFields = document.getElementById('transform-route-fields');
+        const destChannel = document.getElementById('destination_channel_id');
+        const transform = document.getElementById('transformation_id');
+
+        if (routeType === 'direct') {
+            transformFields.style.display = 'none';
+            transform.required = false;
+            destChannel.required = true;
+        } else {
+            transformFields.style.display = 'block';
+            transform.required = true;
+            destChannel.required = true;
+        }
+    }
+
+    toggleRouteFields();
+</script>
 
 {{end}}

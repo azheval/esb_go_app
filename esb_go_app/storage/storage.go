@@ -6,65 +6,18 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"time"
+	"strings"
 
 	_ "modernc.org/sqlite"
 )
 
-// Store - абстракция хранилища данных, использующая SQLite.
+// Store
 type Store struct {
 	db     *sql.DB
 	logger *slog.Logger
 }
 
-// Application представляет приложение (клиента) в системе.
-type Application struct {
-	ID           string
-	Name         string
-	ClientSecret string
-	IDToken      string
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-}
-
-// Channel представляет канал, связанный с приложением.
-type Channel struct {
-	ID            string
-	ApplicationID string
-	Name          string
-	Direction     string // "inbound" или "outbound"
-	Destination   string
-	CreatedAt     time.Time
-}
-
-// Route представляет маршрут между двумя каналами.
-type Route struct {
-	ID                   string
-	SourceChannelID      string
-	DestinationChannelID string
-	CreatedAt            time.Time
-}
-
-// ChannelInfo - отображение информации о канале в UI.
-type ChannelInfo struct {
-	Channel
-	ApplicationName string
-}
-
-// RouteInfo - отображение информации о маршруте в UI.
-type RouteInfo struct {
-	Route
-	SourceChannelName      string
-	SourceAppName          string
-	SourceDirection        string
-	SourceDestination      string
-	DestinationChannelName string
-	DestinationAppName     string
-	DestinationDirection   string
-	DestinationDestination string
-}
-
-// NewStore создает и возвращает новый экземпляр Store.
+// NewStore
 func NewStore(dbPath string, logger *slog.Logger) (*Store, error) {
 	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
 		return nil, fmt.Errorf("failed to create storage directory: %w", err)
@@ -92,313 +45,261 @@ func NewStore(dbPath string, logger *slog.Logger) (*Store, error) {
 	return store, nil
 }
 
-// migrate создает необходимые таблицы.
+// migrate handles database schema setup and evolution.
 func (s *Store) migrate() error {
-	createApplicationsTable := `
-	CREATE TABLE IF NOT EXISTS applications (
-		id TEXT PRIMARY KEY,
-		name TEXT NOT NULL UNIQUE,
-		client_secret TEXT NOT NULL,
-		id_token TEXT NOT NULL,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-	);`
-	if _, err := s.db.Exec(createApplicationsTable); err != nil {
-		return fmt.Errorf("failed to create applications table: %w", err)
+	s.logger.Info("checking database schema...")
+
+	// Create tables if they don't exist
+	if err := s.createTablesIfNotExist(); err != nil {
+		return err
 	}
 
-	createChannelsTable := `
-	CREATE TABLE IF NOT EXISTS channels (
-		id TEXT PRIMARY KEY,
-		application_id TEXT NOT NULL,
-		name TEXT NOT NULL,
-		direction TEXT NOT NULL,
-		destination TEXT NOT NULL,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-		FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE,
-		UNIQUE(application_id, name)
-	);`
-	if _, err := s.db.Exec(createChannelsTable); err != nil {
-		return fmt.Errorf("failed to create channels table: %w", err)
+	// Perform alterations on existing tables
+	if err := s.migrateCollectorsTable(); err != nil {
+		return fmt.Errorf("failed to migrate collectors table: %w", err)
+	}
+	if err := s.migrateRoutesTable(); err != nil {
+		return fmt.Errorf("failed to migrate routes table: %w", err)
+	}
+	if err := s.migrateChannelsTable(); err != nil {
+		return fmt.Errorf("failed to migrate channels table: %w", err)
 	}
 
-	createRoutesTable := `
-	CREATE TABLE IF NOT EXISTS routes (
-		id TEXT PRIMARY KEY,
-		source_channel_id TEXT NOT NULL,
-		destination_channel_id TEXT NOT NULL,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-		FOREIGN KEY (source_channel_id) REFERENCES channels(id) ON DELETE CASCADE,
-		FOREIGN KEY (destination_channel_id) REFERENCES channels(id) ON DELETE CASCADE,
-		UNIQUE(source_channel_id, destination_channel_id)
-	);`
-	if _, err := s.db.Exec(createRoutesTable); err != nil {
-		return fmt.Errorf("failed to create routes table: %w", err)
-	}
-
-	s.logger.Info("database migration completed")
+	s.logger.Info("database schema is up to date.")
 	return nil
 }
 
-// CreateApplication создает новое приложение.
-func (s *Store) CreateApplication(app *Application) error {
-	query := `INSERT INTO applications (id, name, client_secret, id_token) VALUES (?, ?, ?, ?)`
-	_, err := s.db.Exec(query, app.ID, app.Name, app.ClientSecret, app.IDToken)
-	if err != nil {
-		return fmt.Errorf("failed to create application: %w", err)
+// createTablesIfNotExist ensures all necessary tables are created.
+func (s *Store) createTablesIfNotExist() error {
+	// The order is important due to foreign key constraints
+	tables := []string{
+		`CREATE TABLE IF NOT EXISTS applications (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL UNIQUE,
+			client_secret TEXT NOT NULL,
+			id_token TEXT NOT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		);`,
+		`CREATE TABLE IF NOT EXISTS channels (
+			id TEXT PRIMARY KEY,
+			application_id TEXT NOT NULL,
+			name TEXT NOT NULL,
+			direction TEXT NOT NULL,
+			destination TEXT NOT NULL,
+			fanout_mode BOOLEAN NOT NULL DEFAULT 0,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE,
+			UNIQUE(application_id, name)
+		);`,
+		`CREATE TABLE IF NOT EXISTS transformations (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL UNIQUE,
+			engine TEXT NOT NULL,
+			script TEXT NOT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		);`,
+		`CREATE TABLE IF NOT EXISTS integrations (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL UNIQUE,
+			description TEXT,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		);`,
+		`CREATE TABLE IF NOT EXISTS collectors (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL UNIQUE,
+			schedule TEXT NOT NULL,
+			engine TEXT NOT NULL,
+			script TEXT NOT NULL,
+			integration_id TEXT,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (integration_id) REFERENCES integrations(id) ON DELETE SET NULL
+		);`,
+		`CREATE TABLE IF NOT EXISTS routes (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL,
+			source_channel_id TEXT NOT NULL,
+			destination_channel_id TEXT,
+			route_type TEXT NOT NULL DEFAULT 'direct',
+			transformation_id TEXT,
+			integration_id TEXT,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (source_channel_id) REFERENCES channels(id) ON DELETE CASCADE,
+			FOREIGN KEY (destination_channel_id) REFERENCES channels(id) ON DELETE SET NULL,
+			FOREIGN KEY (transformation_id) REFERENCES transformations(id) ON DELETE SET NULL,
+			FOREIGN KEY (integration_id) REFERENCES integrations(id) ON DELETE SET NULL
+		);`,
+	}
+
+	for _, tableSQL := range tables {
+		if _, err := s.db.Exec(tableSQL); err != nil {
+			// Extract table name for better error message
+			parts := strings.Fields(tableSQL)
+			tableName := "unknown"
+			if len(parts) > 5 {
+				tableName = parts[5]
+			}
+			return fmt.Errorf("failed to create table %s: %w", tableName, err)
+		}
 	}
 	return nil
 }
 
-// GetApplicationByName возвращает приложение по его имени.
-func (s *Store) GetApplicationByName(name string) (*Application, error) {
-	query := `SELECT id, name, client_secret, id_token, created_at, updated_at FROM applications WHERE name = ?`
-	row := s.db.QueryRow(query, name)
-
-	app := &Application{}
-	err := row.Scan(&app.ID, &app.Name, &app.ClientSecret, &app.IDToken, &app.CreatedAt, &app.UpdatedAt)
+// migrateChannelsTable handles adding the fanout_mode column to the `channels` table.
+func (s *Store) migrateChannelsTable() error {
+	rows, err := s.db.Query(`PRAGMA table_info(channels);`)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil // Приложение не найдено
-		}
-		return nil, fmt.Errorf("failed to get application by name: %w", err)
-	}
-	return app, nil
-}
-
-// GetApplicationByID возвращает приложение по его ID.
-func (s *Store) GetApplicationByID(id string) (*Application, error) {
-	query := `SELECT id, name, client_secret, id_token, created_at, updated_at FROM applications WHERE id = ?`
-	row := s.db.QueryRow(query, id)
-
-	app := &Application{}
-	err := row.Scan(&app.ID, &app.Name, &app.ClientSecret, &app.IDToken, &app.CreatedAt, &app.UpdatedAt)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil // Приложение не найдено
-		}
-		return nil, fmt.Errorf("failed to get application by id: %w", err)
-	}
-	return app, nil
-}
-
-// GetApplicationByIDToken возвращает приложение по его токену.
-func (s *Store) GetApplicationByIDToken(token string) (*Application, error) {
-	query := `SELECT id, name, client_secret, id_token, created_at, updated_at FROM applications WHERE id_token = ?`
-	row := s.db.QueryRow(query, token)
-
-	app := &Application{}
-	err := row.Scan(&app.ID, &app.Name, &app.ClientSecret, &app.IDToken, &app.CreatedAt, &app.UpdatedAt)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil // Приложение не найдено
-		}
-		return nil, fmt.Errorf("failed to get application by token: %w", err)
-	}
-	return app, nil
-}
-
-// GetAllApplications возвращает все приложения.
-func (s *Store) GetAllApplications() ([]Application, error) {
-	query := `SELECT id, name, client_secret, id_token, created_at, updated_at FROM applications ORDER BY created_at DESC`
-	rows, err := s.db.Query(query)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get all applications: %w", err)
+		return nil // Table might not exist on a fresh DB, which is fine.
 	}
 	defer rows.Close()
 
-	var apps []Application
+	var hasFanoutMode bool
 	for rows.Next() {
-		var app Application
-		if err := rows.Scan(&app.ID, &app.Name, &app.ClientSecret, &app.IDToken, &app.CreatedAt, &app.UpdatedAt); err != nil {
-			return nil, fmt.Errorf("failed to scan application row: %w", err)
+		var cid, notnull, pk int
+		var name, rtype string
+		var dfltValue interface{}
+		if err := rows.Scan(&cid, &name, &rtype, &notnull, &dfltValue, &pk); err != nil {
+			return fmt.Errorf("failed to scan table_info for channels: %w", err)
 		}
-		apps = append(apps, app)
+		if name == "fanout_mode" {
+			hasFanoutMode = true
+			break
+		}
 	}
 
-	return apps, nil
-}
-
-// DeleteApplication удаляет приложение по ID, а также все связанные каналы благодаря каскадному удалению.
-func (s *Store) DeleteApplication(id string) error {
-	tx, err := s.db.Begin()
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
+	if !hasFanoutMode {
+		s.logger.Info("migrating 'channels' table: adding fanout_mode column...")
+		if _, err := s.db.Exec(`ALTER TABLE channels ADD COLUMN fanout_mode BOOLEAN NOT NULL DEFAULT 0`); err != nil {
+			return fmt.Errorf("failed to add fanout_mode to channels table: %w", err)
+		}
+		s.logger.Info("'channels' table migrated successfully (fanout_mode).")
 	}
 
-	// 1. Удаляем связанные каналы
-	if _, err := tx.Exec("DELETE FROM channels WHERE application_id = ?", id); err != nil {
-		_ = tx.Rollback()
-		return fmt.Errorf("failed to delete associated channels: %w", err)
-	}
-
-	// 2. Удаляем само приложение
-	if _, err := tx.Exec("DELETE FROM applications WHERE id = ?", id); err != nil {
-		_ = tx.Rollback()
-		return fmt.Errorf("failed to delete application: %w", err)
-	}
-
-	return tx.Commit()
-}
-
-// CreateChannel создает новый канал для приложения.
-func (s *Store) CreateChannel(ch *Channel) error {
-	query := `INSERT INTO channels (id, application_id, name, direction, destination) VALUES (?, ?, ?, ?, ?)`
-	_, err := s.db.Exec(query, ch.ID, ch.ApplicationID, ch.Name, ch.Direction, ch.Destination)
-	if err != nil {
-		return fmt.Errorf("failed to create channel: %w", err)
-	}
 	return nil
 }
 
-// GetChannelsByAppID возвращает все каналы для заданного ID приложения.
-func (s *Store) GetChannelsByAppID(appID string) ([]Channel, error) {
-	query := `SELECT id, application_id, name, direction, destination, created_at FROM channels WHERE application_id = ?`
-	rows, err := s.db.Query(query, appID)
+
+// migrateCollectorsTable handles the migration for the 'collectors' table.
+// It transitions from the old schema with `destination_channel_id` to the new one without it.
+func (s *Store) migrateCollectorsTable() error {
+	rows, err := s.db.Query(`PRAGMA table_info(collectors);`)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get channels by app id: %w", err)
+		// This can happen on a fresh DB, which is fine.
+		return nil
 	}
 	defer rows.Close()
 
-	var channels []Channel
+	hasDestinationID := false
 	for rows.Next() {
-		var ch Channel
-		if err := rows.Scan(&ch.ID, &ch.ApplicationID, &ch.Name, &ch.Direction, &ch.Destination, &ch.CreatedAt); err != nil {
-			return nil, fmt.Errorf("failed to scan channel row: %w", err)
+		var cid, notnull, pk int
+		var name, rtype string
+		var dfltValue interface{}
+		if err := rows.Scan(&cid, &name, &rtype, &notnull, &dfltValue, &pk); err != nil {
+			return fmt.Errorf("failed to scan table_info for collectors: %w", err)
 		}
-		channels = append(channels, ch)
-	}
-
-	return channels, nil
-}
-
-// GetChannelByID возвращает канал по его ID.
-func (s *Store) GetChannelByID(id string) (*Channel, error) {
-	query := `SELECT id, application_id, name, direction, destination, created_at FROM channels WHERE id = ?`
-	row := s.db.QueryRow(query, id)
-
-	ch := &Channel{}
-	err := row.Scan(&ch.ID, &ch.ApplicationID, &ch.Name, &ch.Direction, &ch.Destination, &ch.CreatedAt)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil // Канал не найден
+		if name == "destination_channel_id" {
+			hasDestinationID = true
+			break
 		}
-		return nil, fmt.Errorf("failed to get channel by id: %w", err)
 	}
-	return ch, nil
+
+	// If the old column exists, we need to migrate the table.
+	if hasDestinationID {
+		s.logger.Info("migrating 'collectors' table: removing destination_channel_id...")
+		tx, err := s.db.Begin()
+		if err != nil { return err }
+
+		if _, err := tx.Exec(`ALTER TABLE collectors RENAME TO old_collectors;`); err != nil {
+			tx.Rollback()
+			return fmt.Errorf("failed to rename collectors to old_collectors: %w", err)
+		}
+
+		// Create new table with final schema
+		createCollectorsTable := `
+			CREATE TABLE collectors (
+				id TEXT PRIMARY KEY,
+				name TEXT NOT NULL UNIQUE,
+				schedule TEXT NOT NULL,
+				engine TEXT NOT NULL,
+				script TEXT NOT NULL,
+				integration_id TEXT,
+				created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+				updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+				FOREIGN KEY (integration_id) REFERENCES integrations(id) ON DELETE SET NULL
+			);`
+		if _, err := tx.Exec(createCollectorsTable); err != nil {
+			tx.Rollback()
+			return fmt.Errorf("failed to create new collectors table during migration: %w", err)
+		}
+
+		// Copy data, omitting the old destination_channel_id
+		copySQL := `INSERT INTO collectors (id, name, schedule, engine, script, created_at, updated_at)
+					SELECT id, name, schedule, engine, script, created_at, updated_at FROM old_collectors;`
+		if _, err := tx.Exec(copySQL); err != nil {
+			tx.Rollback()
+			return fmt.Errorf("failed to copy data to new collectors table: %w", err)
+		}
+
+		if _, err := tx.Exec(`DROP TABLE old_collectors;`); err != nil {
+			tx.Rollback()
+			return fmt.Errorf("failed to drop old_collectors table: %w", err)
+		}
+		s.logger.Info("'collectors' table migrated successfully.")
+		return tx.Commit()
+	}
+
+	return nil // No migration needed
 }
 
-// DeleteChannel удаляет канал по ID.
-func (s *Store) DeleteChannel(id string) error {
-	query := `DELETE FROM channels WHERE id = ?`
-	_, err := s.db.Exec(query, id)
+// migrateRoutesTable handles adding new columns to the `routes` table if they are missing.
+func (s *Store) migrateRoutesTable() error {
+	rows, err := s.db.Query(`PRAGMA table_info(routes);`)
 	if err != nil {
-		return fmt.Errorf("failed to delete channel: %w", err)
-	}
-	return nil
-}
-
-// DeleteOrphanedChannels удаляет каналы, ссылающиеся на несуществующие приложения.
-func (s *Store) DeleteOrphanedChannels() (int64, error) {
-	query := `DELETE FROM channels WHERE application_id NOT IN (SELECT id FROM applications)`
-	res, err := s.db.Exec(query)
-	if err != nil {
-		return 0, fmt.Errorf("failed to delete orphaned channels: %w", err)
-	}
-
-	rowsAffected, err := res.RowsAffected()
-	if err != nil {
-		return 0, fmt.Errorf("failed to get affected rows: %w", err)
-	}
-
-	return rowsAffected, nil
-}
-
-// --- Методы для Маршрутов (Routes) ---
-
-// CreateRoute создает новый маршрут.
-func (s *Store) CreateRoute(route *Route) error {
-	query := `INSERT INTO routes (id, source_channel_id, destination_channel_id) VALUES (?, ?, ?)`
-	_, err := s.db.Exec(query, route.ID, route.SourceChannelID, route.DestinationChannelID)
-	if err != nil {
-		return fmt.Errorf("failed to create route: %w", err)
-	}
-	return nil
-}
-
-// DeleteRoute удаляет маршрут по ID.
-func (s *Store) DeleteRoute(id string) error {
-	query := "DELETE FROM routes WHERE id = ?"
-	_, err := s.db.Exec(query, id)
-	if err != nil {
-		return fmt.Errorf("failed to delete route: %w", err)
-	}
-	return nil
-}
-
-// GetAllRoutes возвращает все маршруты с детальной информацией.
-func (s *Store) GetAllRoutes() ([]RouteInfo, error) {
-	query := `
-		SELECT
-			r.id,
-			r.created_at,
-			sc.id, sc.name, sc.direction, sc.destination, sa.name,
-			dc.id, dc.name, dc.direction, dc.destination, da.name
-		FROM routes r
-		JOIN channels sc ON r.source_channel_id = sc.id
-		JOIN applications sa ON sc.application_id = sa.id
-		JOIN channels dc ON r.destination_channel_id = dc.id
-		JOIN applications da ON dc.application_id = da.id
-		ORDER BY r.created_at DESC
-	`
-	rows, err := s.db.Query(query)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get all routes: %w", err)
+		// Table might not exist on a fresh DB, which is fine.
+		return nil
 	}
 	defer rows.Close()
 
-	var routes []RouteInfo
+	var hasIntegrationID, hasName bool
 	for rows.Next() {
-		var r RouteInfo
-		if err := rows.Scan(
-			&r.ID, &r.CreatedAt,
-			&r.SourceChannelID, &r.SourceChannelName, &r.SourceDirection, &r.SourceDestination, &r.SourceAppName,
-			&r.DestinationChannelID, &r.DestinationChannelName, &r.DestinationDirection, &r.DestinationDestination, &r.DestinationAppName,
-		); err != nil {
-			return nil, fmt.Errorf("failed to scan route row: %w", err)
+		var cid, notnull, pk int
+		var name, rtype string
+		var dfltValue interface{}
+		if err := rows.Scan(&cid, &name, &rtype, &notnull, &dfltValue, &pk); err != nil {
+			return fmt.Errorf("failed to scan table_info for routes: %w", err)
 		}
-		routes = append(routes, r)
+		if name == "integration_id" {
+			hasIntegrationID = true
+		}
+		if name == "name" {
+			hasName = true
+		}
 	}
-	return routes, nil
+
+	if !hasIntegrationID {
+		s.logger.Info("migrating 'routes' table: adding integration_id column...")
+		if _, err := s.db.Exec(`ALTER TABLE routes ADD COLUMN integration_id TEXT`); err != nil {
+			return fmt.Errorf("failed to add integration_id to routes table: %w", err)
+		}
+		s.logger.Info("'routes' table migrated successfully (integration_id).")
+	}
+
+	if !hasName {
+		s.logger.Info("migrating 'routes' table: adding name column...")
+		// Adding NOT NULL with a DEFAULT value to avoid constraint violations on existing rows.
+		if _, err := s.db.Exec(`ALTER TABLE routes ADD COLUMN name TEXT NOT NULL DEFAULT ''`); err != nil {
+			return fmt.Errorf("failed to add name to routes table: %w", err)
+		}
+		s.logger.Info("'routes' table migrated successfully (name).")
+	}
+
+	return nil
 }
 
-// GetAllRoutableChannels возвращает все каналы, которые могут быть использованы в маршрутизации.
-func (s *Store) GetAllRoutableChannels(direction string) ([]ChannelInfo, error) {
-	query := `
-		SELECT c.id, c.name, c.destination, a.name
-		FROM channels c
-		JOIN applications a ON c.application_id = a.id
-		WHERE c.direction = ?
-		ORDER BY a.name, c.name
-	`
-	rows, err := s.db.Query(query, direction)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get routable channels: %w", err)
-	}
-	defer rows.Close()
-
-	var channels []ChannelInfo
-	for rows.Next() {
-		var ch ChannelInfo
-		if err := rows.Scan(&ch.ID, &ch.Name, &ch.Destination, &ch.ApplicationName); err != nil {
-			return nil, fmt.Errorf("failed to scan routable channel row: %w", err)
-		}
-		channels = append(channels, ch)
-	}
-	return channels, nil
-}
-
-// Close закрывает соединение с базой данных.
+// Close
 func (s *Store) Close() error {
 	return s.db.Close()
 }

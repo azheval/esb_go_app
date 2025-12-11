@@ -2,30 +2,31 @@ package api
 
 import (
 	"encoding/json"
-	"esb-go-app/rabbitmq"
-	"esb-go-app/storage"
 	"log/slog"
 	"net/http"
 	"strings"
+
+	"esb-go-app/rabbitmq"
+	"esb-go-app/scripting"
+	"esb-go-app/storage"
 )
 
-// Handler обрабатывает запросы к фейковому API.
 type Handler struct {
-	Store    *storage.Store
-	RabbitMQ *rabbitmq.RabbitMQ
-	Logger   *slog.Logger
+	Store            *storage.Store
+	RabbitMQ         *rabbitmq.RabbitMQ
+	Logger           *slog.Logger
+	scriptingService *scripting.Service
 }
 
-// NewHandler создает новый экземпляр обработчика API.
-func NewHandler(s *storage.Store, r *rabbitmq.RabbitMQ, l *slog.Logger) *Handler {
+func NewHandler(s *storage.Store, r *rabbitmq.RabbitMQ, l *slog.Logger, ss *scripting.Service) *Handler {
 	return &Handler{
-		Store:    s,
-		RabbitMQ: r,
-		Logger:   l,
+		Store:            s,
+		RabbitMQ:         r,
+		Logger:           l,
+		scriptingService: ss,
 	}
 }
 
-// ServeHTTP является точкой входа для всех запросов к API.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.Logger.Info("api handler invoked", "method", r.Method, "path", r.URL.Path)
 
@@ -42,7 +43,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// handleGetToken обрабатывает запрос на получение токена.
+// handleGetToken
 func (h *Handler) handleGetToken(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		h.Logger.Warn("invalid method for get token", "method", r.Method)
@@ -86,7 +87,7 @@ func (h *Handler) handleGetToken(w http.ResponseWriter, r *http.Request) {
 	h.Logger.Info("token issued successfully", "client_id", reqClientID)
 }
 
-// handleGetMetadataChannels обрабатывает запрос на получение метаданных каналов.
+// handleGetMetadataChannels
 func (h *Handler) handleGetMetadataChannels(w http.ResponseWriter, r *http.Request) {
 	app, err := h.getAppFromRequest(r)
 	if err != nil {
@@ -133,7 +134,7 @@ func (h *Handler) handleGetMetadataChannels(w http.ResponseWriter, r *http.Reque
 	h.Logger.Info("metadata channels served", "app_id", app.ID)
 }
 
-// handleGetRuntimeChannels обрабатывает запрос на получение runtime-каналов.
+// handleGetRuntimeChannels
 func (h *Handler) handleGetRuntimeChannels(w http.ResponseWriter, r *http.Request) {
 	app, err := h.getAppFromRequest(r)
 	if err != nil {
@@ -177,7 +178,7 @@ func (h *Handler) handleGetRuntimeChannels(w http.ResponseWriter, r *http.Reques
 	h.Logger.Info("runtime channels served", "app_id", app.ID)
 }
 
-// getAppFromRequest извлекает приложение из запроса, проверяя Bearer токен или Basic Auth.
+// getAppFromRequest
 func (h *Handler) getAppFromRequest(r *http.Request) (*storage.Application, error) {
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {

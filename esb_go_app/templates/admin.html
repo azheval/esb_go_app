@@ -3,15 +3,14 @@
 {{define "content"}}
     <h1>Приложения</h1>
 
-    <form action="/admin/queues/recreate" method="post" style="margin-bottom: 2em;" onsubmit="return confirm('Вы уверены, что хотите пересоздать все очереди? Это может занять некоторое время.');">
-        <button type="submit" class="btn btn-warning">Пересоздать все очереди и мосты</button>
-    </form>
-
-    <div class="maintenance-section">
-        <h3>Обслуживание базы данных</h3>
-        <form action="/admin/maintenance" method="post" onsubmit="return confirm('Вы уверены, что хотите удалить все каналы, которые не принадлежат ни одному приложению?');">
+    <div class="maintenance-section" style="margin-bottom: 2em; padding: 1em; background-color: #f8f9fa; border-radius: 5px;">
+        <h3>Обслуживание</h3>
+        <form action="/admin/maintenance" method="post" onsubmit="return confirm('Вы уверены, что хотите удалить все каналы, которые не принадлежат ни одному приложению?');" style="display: inline-block;">
             <input type="hidden" name="action" value="prune_orphaned_channels">
             <button type="submit" class="btn btn-secondary">Удалить 'осиротевшие' каналы</button>
+        </form>
+        <form action="/admin/maintenance/queues" method="get" style="display: inline-block; margin-left: 10px;">
+            <button type="submit" class="btn btn-secondary">Сверить очереди RabbitMQ</button>
         </form>
     </div>
 
@@ -61,4 +60,12 @@
             {{end}}
         </tbody>
     </table>
+
+    <footer style="margin-top: 3em; padding-top: 1em; border-top: 1px solid #eee; color: #666; font-size: 0.9em;">
+        <p>
+            Версия сервиса: {{.Version}} |
+            Автор: <a href="https://github.com/azheval" target="_blank">Valentin Azharonak</a> |
+            <a href="https://github.com/azheval/esb_go_app" target="_blank">Репозиторий на GitHub</a>
+        </p>
+    </footer>
 {{end}}

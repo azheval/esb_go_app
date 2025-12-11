@@ -23,8 +23,19 @@
         <tr><th>Created At</th><td>{{.Application.CreatedAt.Format "2006-01-02 15:04:05"}}</td></tr>
     </table>
 
+    <h2 style="margin-top: 2em;">Редактировать приложение</h2>
+    <form action="/admin/app/{{.Application.ID}}/update" method="post" style="margin-bottom: 2em;">
+        <div class="form-group">
+            <label for="name">Название приложения:</label>
+            <input type="text" id="name" name="name" required value="{{.Application.Name}}">
+        </div>
+        <div class="form-group">
+            <button type="submit" class="btn">Сохранить</button>
+        </div>
+    </form>
+
     <h2 style="margin-top: 2em;">Каналы</h2>
-    
+
     <h3>Создать новый канал</h3>
     <form action="/admin/app/{{.Application.ID}}/channel/create" method="post" style="margin-bottom: 2em; display: flex; gap: 10px; align-items: flex-end;">
         <div class="form-group" style="flex-grow: 1;">
@@ -37,6 +48,10 @@
                 <option value="inbound">inbound</option>
                 <option value="outbound">outbound</option>
             </select>
+        </div>
+        <div class="form-group" style="padding-bottom: 15px; margin-left: 10px;">
+            <label for="ch_fanout" title="Если включено, канал будет раздавать копии сообщений всем маршрутам-подписчикам. Иначе маршруты будут конкурировать за сообщения.">Fan-out</label>
+            <input type="checkbox" id="ch_fanout" name="fanout_mode" value="on">
         </div>
         <div class="form-group" style="flex-grow: 1;">
             <label for="ch_destination">Назначение (очередь):</label>
@@ -53,6 +68,7 @@
             <tr>
                 <th>Название</th>
                 <th>Направление</th>
+                <th>Fan-out</th>
                 <th>Назначение</th>
                 <th>Тест</th>
                 <th>Действия</th>
@@ -61,8 +77,9 @@
         <tbody>
             {{range .Channels}}
             <tr>
-                <td>{{.Name}}</td>
+                <td><a href="/admin/app/{{$.Application.ID}}/channel/{{.ID}}">{{.Name}}</a></td>
                 <td>{{.Direction}}</td>
+                <td>{{if .FanoutMode}}✓{{else}}✗{{end}}</td>
                 <td><code>{{.Destination}}</code></td>
                 <td style="min-width: 320px; display: flex; gap: 10px; align-items: flex-start;">
                     <!-- Форма для отправки -->
@@ -84,7 +101,7 @@
             </tr>
             {{else}}
             <tr>
-                <td colspan="5">Нет созданных каналов.</td>
+                <td colspan="6">Нет созданных каналов.</td>
             </tr>
             {{end}}
         </tbody>
