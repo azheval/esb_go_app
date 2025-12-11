@@ -41,6 +41,19 @@ func NewStore(dbPath string, logger *slog.Logger) (*Store, error) {
 		return nil, fmt.Errorf("failed to migrate database: %w", err)
 	}
 
+	// Close and re-open the database connection to ensure schema cache is refreshed
+	if store.db != nil {
+		store.db.Close()
+	}
+	db, err = sql.Open("sqlite", dbPath+"?_foreign_keys=on")
+	if err != nil {
+		return nil, fmt.Errorf("failed to re-open database after migration: %w", err)
+	}
+	if err := db.Ping(); err != nil {
+		return nil, fmt.Errorf("failed to re-connect to database after migration: %w", err)
+	}
+	store.db = db
+
 	logger.Info("database initialized and migrated successfully", "path", dbPath)
 	return store, nil
 }
@@ -263,7 +276,7 @@ func (s *Store) migrateRoutesTable() error {
 	}
 	defer rows.Close()
 
-	var hasIntegrationID, hasName bool
+	var hasName, hasSourceChannelID, hasDestinationChannelID, hasRouteType, hasTransformationID, hasIntegrationID, hasCreatedAt bool
 	for rows.Next() {
 		var cid, notnull, pk int
 		var name, rtype string
@@ -271,12 +284,62 @@ func (s *Store) migrateRoutesTable() error {
 		if err := rows.Scan(&cid, &name, &rtype, &notnull, &dfltValue, &pk); err != nil {
 			return fmt.Errorf("failed to scan table_info for routes: %w", err)
 		}
-		if name == "integration_id" {
-			hasIntegrationID = true
-		}
-		if name == "name" {
+		switch name {
+		case "name":
 			hasName = true
+		case "source_channel_id":
+			hasSourceChannelID = true
+		case "destination_channel_id":
+			hasDestinationChannelID = true
+		case "route_type":
+			hasRouteType = true
+		case "transformation_id":
+			hasTransformationID = true
+		case "integration_id":
+			hasIntegrationID = true
+		case "created_at":
+			hasCreatedAt = true
 		}
+	}
+
+	if !hasName {
+		s.logger.Info("migrating 'routes' table: adding name column...")
+		if _, err := s.db.Exec(`ALTER TABLE routes ADD COLUMN name TEXT NOT NULL DEFAULT ''`); err != nil {
+			return fmt.Errorf("failed to add name to routes table: %w", err)
+		}
+		s.logger.Info("'routes' table migrated successfully (name).")
+	}
+
+	if !hasSourceChannelID {
+		s.logger.Info("migrating 'routes' table: adding source_channel_id column...")
+		if _, err := s.db.Exec(`ALTER TABLE routes ADD COLUMN source_channel_id TEXT NOT NULL DEFAULT ''`); err != nil {
+			return fmt.Errorf("failed to add source_channel_id to routes table: %w", err)
+		}
+		s.logger.Info("'routes' table migrated successfully (source_channel_id).")
+	}
+
+	if !hasDestinationChannelID {
+		s.logger.Info("migrating 'routes' table: adding destination_channel_id column...")
+		if _, err := s.db.Exec(`ALTER TABLE routes ADD COLUMN destination_channel_id TEXT`); err != nil {
+			return fmt.Errorf("failed to add destination_channel_id to routes table: %w", err)
+		}
+		s.logger.Info("'routes' table migrated successfully (destination_channel_id).")
+	}
+
+	if !hasRouteType {
+		s.logger.Info("migrating 'routes' table: adding route_type column...")
+		if _, err := s.db.Exec(`ALTER TABLE routes ADD COLUMN route_type TEXT NOT NULL DEFAULT 'direct'`); err != nil {
+			return fmt.Errorf("failed to add route_type to routes table: %w", err)
+		}
+		s.logger.Info("'routes' table migrated successfully (route_type).")
+	}
+
+	if !hasTransformationID {
+		s.logger.Info("migrating 'routes' table: adding transformation_id column...")
+		if _, err := s.db.Exec(`ALTER TABLE routes ADD COLUMN transformation_id TEXT`); err != nil {
+			return fmt.Errorf("failed to add transformation_id to routes table: %w", err)
+		}
+		s.logger.Info("'routes' table migrated successfully (transformation_id).")
 	}
 
 	if !hasIntegrationID {
@@ -287,13 +350,12 @@ func (s *Store) migrateRoutesTable() error {
 		s.logger.Info("'routes' table migrated successfully (integration_id).")
 	}
 
-	if !hasName {
-		s.logger.Info("migrating 'routes' table: adding name column...")
-		// Adding NOT NULL with a DEFAULT value to avoid constraint violations on existing rows.
-		if _, err := s.db.Exec(`ALTER TABLE routes ADD COLUMN name TEXT NOT NULL DEFAULT ''`); err != nil {
-			return fmt.Errorf("failed to add name to routes table: %w", err)
+	if !hasCreatedAt {
+		s.logger.Info("migrating 'routes' table: adding created_at column...")
+		if _, err := s.db.Exec(`ALTER TABLE routes ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP`); err != nil {
+			return fmt.Errorf("failed to add created_at to routes table: %w", err)
 		}
-		s.logger.Info("'routes' table migrated successfully (name).")
+		s.logger.Info("'routes' table migrated successfully (created_at).")
 	}
 
 	return nil
