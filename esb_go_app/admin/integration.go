@@ -42,60 +42,65 @@ func IntegrationRoutes(h *Handler, w http.ResponseWriter, r *http.Request, parts
 }
 
 func (h *Handler) handleListIntegrations(w http.ResponseWriter, r *http.Request) {
+	lang := h.determineLanguage(r)
 	integrations, err := h.Store.GetAllIntegrations()
 	if err != nil {
-		h.renderError(w, "integrations.html", "Failed to retrieve integrations: "+err.Error(), http.StatusInternalServerError)
+		h.renderError(w, "integrations.html", h.I18n.Sprintf(lang, "Failed to retrieve integrations: %s", err.Error()), http.StatusInternalServerError, r)
 		return
 	}
 
 	data := PageData{
-		Integrations: integrations,
+		Integrations:   integrations,
+		AcceptLanguage: lang,
 	}
 
 	status := r.URL.Query().Get("status")
 	if status == "created" {
-		data.StatusMessage = "Интеграция успешно создана!"
+		data.StatusMessage = h.I18n.Sprintf(lang, "Integration created successfully!")
 	} else if status == "deleted" {
-		data.StatusMessage = "Интеграция удалена."
+		data.StatusMessage = h.I18n.Sprintf(lang, "Integration deleted.")
 	}
 
 	h.renderTemplate(w, "integrations.html", data)
 }
 
 func (h *Handler) handleViewIntegration(w http.ResponseWriter, r *http.Request, integrationID string) {
+	lang := h.determineLanguage(r)
 	integration, err := h.Store.GetIntegrationByID(integrationID)
 	if err != nil || integration == nil {
-		h.renderError(w, "integrations.html", "Integration not found: "+err.Error(), http.StatusNotFound)
+		h.renderError(w, "integrations.html", h.I18n.Sprintf(lang, "Integration not found: %s", err.Error()), http.StatusNotFound, r)
 		return
 	}
 
 	collectors, err := h.Store.GetCollectorsByIntegrationID(integrationID)
 	if err != nil {
-		h.renderError(w, "integration_details.html", "Failed to retrieve collectors: "+err.Error(), http.StatusInternalServerError)
+		h.renderError(w, "integration_details.html", h.I18n.Sprintf(lang, "Failed to retrieve collectors: %s", err.Error()), http.StatusInternalServerError, r)
 		return
 	}
 
 	routes, err := h.Store.GetRoutesByIntegrationID(integrationID)
 	if err != nil {
-		h.renderError(w, "integration_details.html", "Failed to retrieve routes: "+err.Error(), http.StatusInternalServerError)
+		h.renderError(w, "integration_details.html", h.I18n.Sprintf(lang, "Failed to retrieve routes: %s", err.Error()), http.StatusInternalServerError, r)
 		return
 	}
 
-	diagram := generateMermaidDiagram(collectors, routes)
+	diagram := generateMermaidDiagram(collectors, routes, h.I18n.Sprintf(lang, "(Collector)<br>%s"))
 
 	data := PageData{
 		Integration:    integration,
 		Collectors:     collectors,
 		Routes:         routes,
 		MermaidDiagram: diagram,
+		AcceptLanguage: lang,
 	}
 
 	h.renderTemplate(w, "integration_details.html", data)
 }
 
 func (h *Handler) handleCreateIntegration(w http.ResponseWriter, r *http.Request) {
+	lang := h.determineLanguage(r)
 	if err := r.ParseForm(); err != nil {
-		h.renderError(w, "integrations.html", "Failed to parse form.", http.StatusBadRequest)
+		h.renderError(w, "integrations.html", h.I18n.Sprintf(lang, "Failed to parse form."), http.StatusBadRequest, r)
 		return
 	}
 
@@ -106,12 +111,12 @@ func (h *Handler) handleCreateIntegration(w http.ResponseWriter, r *http.Request
 	}
 
 	if integration.Name == "" {
-		h.renderError(w, "integrations.html", "Название интеграции не может быть пустым.", http.StatusBadRequest)
+		h.renderError(w, "integrations.html", h.I18n.Sprintf(lang, "Integration name cannot be empty."), http.StatusBadRequest, r)
 		return
 	}
 
 	if err := h.Store.CreateIntegration(integration); err != nil {
-		h.renderError(w, "integrations.html", "Failed to create integration: "+err.Error(), http.StatusInternalServerError)
+		h.renderError(w, "integrations.html", h.I18n.Sprintf(lang, "Failed to create integration: %s", err.Error()), http.StatusInternalServerError, r)
 		return
 	}
 
@@ -120,8 +125,9 @@ func (h *Handler) handleCreateIntegration(w http.ResponseWriter, r *http.Request
 }
 
 func (h *Handler) handleDeleteIntegration(w http.ResponseWriter, r *http.Request, integrationID string) {
+	lang := h.determineLanguage(r)
 	if err := h.Store.DeleteIntegration(integrationID); err != nil {
-		h.renderError(w, "integrations.html", "Failed to delete integration: "+err.Error(), http.StatusInternalServerError)
+		h.renderError(w, "integrations.html", h.I18n.Sprintf(lang, "Failed to delete integration: %s", err.Error()), http.StatusInternalServerError, r)
 		return
 	}
 
@@ -131,7 +137,7 @@ func (h *Handler) handleDeleteIntegration(w http.ResponseWriter, r *http.Request
 
 
 // generateMermaidDiagram creates a Mermaid.js graph definition string.
-func generateMermaidDiagram(collectors []storage.Collector, routes []storage.RouteInfo) string {
+func generateMermaidDiagram(collectors []storage.Collector, routes []storage.RouteInfo, collectorLabel string) string {
 	var sb bytes.Buffer
 	sb.WriteString("graph TD\n")
 
@@ -143,7 +149,7 @@ func generateMermaidDiagram(collectors []storage.Collector, routes []storage.Rou
 
 	// Define collector nodes
 	for _, c := range collectors {
-		sb.WriteString(fmt.Sprintf(`    C%s["(Сборщик)<br>%s"]:::collector`+"\n", c.ID, template.HTMLEscapeString(c.Name)))
+		sb.WriteString(fmt.Sprintf(`    C%s["`+collectorLabel+`"]:::collector`+"\n", c.ID, template.HTMLEscapeString(c.Name)))
 	}
 
 	// Create a map to avoid duplicating channel nodes

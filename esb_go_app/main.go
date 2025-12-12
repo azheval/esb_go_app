@@ -11,6 +11,7 @@ import (
 	"esb-go-app/api"
 	"esb-go-app/collector"
 	"esb-go-app/config"
+	"esb-go-app/i18n"
 	"esb-go-app/logger"
 	"esb-go-app/metrics"
 	"esb-go-app/rabbitmq"
@@ -21,7 +22,7 @@ import (
 	"github.com/robfig/cron/v3"
 )
 
-var version = "2.0.0"
+var version = "3.0.0"
 
 func main() {
 	configPath := flag.String("config", "config.json", "path to config file")
@@ -48,6 +49,13 @@ func main() {
 	}
 	defer dataStore.Close()
 	log.Info("data store initialized")
+
+	i18nService, err := i18n.NewService("./locales", log)
+	if err != nil {
+		log.Error("failed to create i18n service", "error", err)
+		os.Exit(1)
+	}
+	log.Info("i18n service initialized")
 
 	scriptingHTTPClient := scripting.NewHTTPClient(log)
 	scriptingService := scripting.NewService(log, scriptingHTTPClient, dataStore)
@@ -128,8 +136,8 @@ func main() {
 	log.Info("collectors scheduled", "count", len(collectors))
 
 	mux := http.NewServeMux()
-	adminHandler := admin.NewHandler(dataStore, rmq, log, scriptingService, version)
-	apiHandler := api.NewHandler(dataStore, rmq, log, scriptingService)
+	adminHandler := admin.NewHandler(dataStore, rmq, log, scriptingService, version, i18nService) // Pass i18nService
+	apiHandler := api.NewHandler(dataStore, rmq, log, scriptingService, i18nService)               // Pass i18nService
 
 	metrics.Register()
 
@@ -144,7 +152,10 @@ func main() {
 			http.NotFound(w, r)
 			return
 		}
-		fmt.Fprintln(w, "Go 1C:ESB Fake API is running. Visit /admin to configure.")
+		// Use i18n service to translate the message
+		acceptLanguage := r.Header.Get("Accept-Language")
+		translatedMessage := i18nService.Sprintf(acceptLanguage, "Go 1C:ESB Fake API is running. Visit /admin to configure.")
+		fmt.Fprintln(w, translatedMessage)
 	})
 
 	log.Info("starting server", "port", cfg.Port)

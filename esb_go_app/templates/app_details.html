@@ -1,9 +1,9 @@
 {{template "layout" .}}
 
 {{define "content"}}
-    <a href="/admin">&larr; Назад к списку приложений</a>
+    <a href="/admin">&larr; {{T "Back to application list"}}</a>
 
-    <h1>Приложение: {{.Application.Name}}</h1>
+    <h1>{{T "Application:"}} {{.Application.Name}}</h1>
 
     {{if .StatusMessage}}
     <div class="status-message success">{{.StatusMessage}}</div>
@@ -15,63 +15,63 @@
     <div class="status-message info">{{.TestMessageStatus}}</div>
     {{end}}
 
-    <h2>Детали</h2>
+    <h2>{{T "Details"}}</h2>
     <table>
         <tr><th>ID</th><td><code>{{.Application.ID}}</code></td></tr>
-        <tr><th>Client Secret</th><td><code>{{.Application.ClientSecret}}</code></td></tr>
-        <tr><th>ID Token</th><td><code>{{.Application.IDToken}}</code></td></tr>
-        <tr><th>Created At</th><td>{{.Application.CreatedAt.Format "2006-01-02 15:04:05"}}</td></tr>
+        <tr><th>{{T "Client Secret"}}</th><td><code>{{.Application.ClientSecret}}</code></td></tr>
+        <tr><th>{{T "ID Token"}}</th><td><code>{{.Application.IDToken}}</code></td></tr>
+        <tr><th>{{T "Created"}}</th><td>{{.Application.CreatedAt.Format "2006-01-02 15:04:05"}}</td></tr>
     </table>
 
-    <h2 style="margin-top: 2em;">Редактировать приложение</h2>
+    <h2 style="margin-top: 2em;">{{T "Edit Application"}}</h2>
     <form action="/admin/app/{{.Application.ID}}/update" method="post" style="margin-bottom: 2em;">
         <div class="form-group">
-            <label for="name">Название приложения:</label>
+            <label for="name">{{T "Application Name:"}}</label>
             <input type="text" id="name" name="name" required value="{{.Application.Name}}">
         </div>
         <div class="form-group">
-            <button type="submit" class="btn">Сохранить</button>
+            <button type="submit" class="btn">{{T "Save"}}</button>
         </div>
     </form>
 
-    <h2 style="margin-top: 2em;">Каналы</h2>
+    <h2 style="margin-top: 2em;">{{T "Channels"}}</h2>
 
-    <h3>Создать новый канал</h3>
+    <h3>{{T "Create New Channel"}}</h3>
     <form action="/admin/app/{{.Application.ID}}/channel/create" method="post" style="margin-bottom: 2em; display: flex; gap: 10px; align-items: flex-end;">
         <div class="form-group" style="flex-grow: 1;">
-            <label for="ch_name">Название канала:</label>
+            <label for="ch_name">{{T "Channel Name:"}}</label>
             <input type="text" id="ch_name" name="name" required>
         </div>
         <div class="form-group" style="flex-grow: 1;">
-            <label for="ch_direction">Направление:</label>
+            <label for="ch_direction">{{T "Direction:"}}</label>
             <select id="ch_direction" name="direction">
                 <option value="inbound">inbound</option>
                 <option value="outbound">outbound</option>
             </select>
         </div>
         <div class="form-group" style="padding-bottom: 15px; margin-left: 10px;">
-            <label for="ch_fanout" title="Если включено, канал будет раздавать копии сообщений всем маршрутам-подписчикам. Иначе маршруты будут конкурировать за сообщения.">Fan-out</label>
+            <label for="ch_fanout" title="{{T "If checked, the channel will fan-out messages to all subscribing routes. Otherwise, routes will compete for messages."}}">{{T "Fan-out"}}</label>
             <input type="checkbox" id="ch_fanout" name="fanout_mode" value="on">
         </div>
         <div class="form-group" style="flex-grow: 1;">
-            <label for="ch_destination">Назначение (очередь):</label>
+            <label for="ch_destination">{{T "Destination (Queue):"}}</label>
             <input type="text" id="ch_destination" name="destination" required>
         </div>
         <div class="form-group">
-            <button type="submit" class="btn">Создать канал</button>
+            <button type="submit" class="btn">{{T "Create Channel"}}</button>
         </div>
     </form>
 
-    <h3>Существующие каналы</h3>
+    <h3>{{T "Existing Channels"}}</h3>
     <table>
         <thead>
             <tr>
-                <th>Название</th>
-                <th>Направление</th>
-                <th>Fan-out</th>
-                <th>Назначение</th>
-                <th>Тест</th>
-                <th>Действия</th>
+                <th>{{T "Name"}}</th>
+                <th>{{T "Direction"}}</th>
+                <th>{{T "Fan-out"}}</th>
+                <th>{{T "Destination"}}</th>
+                <th>{{T "Test"}}</th>
+                <th>{{T "Actions"}}</th>
             </tr>
         </thead>
         <tbody>
@@ -82,33 +82,33 @@
                 <td>{{if .FanoutMode}}✓{{else}}✗{{end}}</td>
                 <td><code>{{.Destination}}</code></td>
                 <td style="min-width: 320px; display: flex; gap: 10px; align-items: flex-start;">
-                    <!-- Форма для отправки -->
+                    <!-- Send form -->
                     <form action="/admin/app/{{$.Application.ID}}/channel/{{.ID}}/test" method="post" class="test-form" style="flex: 2;">
                         <textarea name="payload" placeholder='{"test": "message"}' style="width: 100%; min-height: 50px; box-sizing: border-box;"></textarea>
-                        <button type="submit" class="btn btn-small" style="margin-top: 5px; width: 100%;">Отправить</button>
+                        <button type="submit" class="btn btn-small" style="margin-top: 5px; width: 100%;">{{T "Send"}}</button>
                     </form>
-                    <!-- Форма для получения -->
+                    <!-- Receive form -->
                     <form action="/admin/app/{{$.Application.ID}}/channel/{{.ID}}/test" method="post" class="test-form" style="flex: 1;">
                         <input type="hidden" name="action" value="receive">
-                        <button type="submit" class="btn btn-small" style="width: 100%; min-height: 80px;">Получить 1</button>
+                        <button type="submit" class="btn btn-small" style="width: 100%; min-height: 80px;">{{T "Receive 1"}}</button>
                     </form>
                 </td>
                 <td>
-                    <form action="/admin/app/{{$.Application.ID}}/channel/{{.ID}}/delete" method="post" onsubmit="return confirm('Вы уверены, что хотите удалить этот канал?');">
-                        <button type="submit" class="btn btn-danger">Удалить</button>
+                    <form action="/admin/app/{{$.Application.ID}}/channel/{{.ID}}/delete" method="post" onsubmit="return confirm('{{T `Are you sure you want to delete this channel?`}}');">
+                        <button type="submit" class="btn btn-danger">{{T "Delete"}}</button>
                     </form>
                 </td>
             </tr>
             {{else}}
             <tr>
-                <td colspan="6">Нет созданных каналов.</td>
+                <td colspan="6">{{T "No channels created."}}</td>
             </tr>
             {{end}}
         </tbody>
     </table>
 
     {{if .TestMessageReceived}}
-    <h3 style="margin-top: 2em;">Полученное сообщение:</h3>
+    <h3 style="margin-top: 2em;">{{T "Message Received:"}}</h3>
     <pre><code class="json">{{.TestMessageReceived}}</code></pre>
     {{end}}
 

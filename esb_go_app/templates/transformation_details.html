@@ -1,6 +1,6 @@
 {{define "content"}}
-<h1>Редактирование трансформации</h1>
-<p>Здесь вы можете изменить существующий скрипт трансформации.</p>
+<h1>{{T "Editing Transformation"}}</h1>
+<p>{{T "Here you can edit an existing transformation script."}}</p>
 
 {{if .ErrorMessage}}
 <div class="status-message error">{{.ErrorMessage}}</div>
@@ -9,74 +9,74 @@
 {{if .Transformation}}
 <form action="/admin/transformations/update/{{.Transformation.ID}}" method="post" style="margin-bottom: 2em;">
     <div class="form-group">
-        <label for="name">Название</label>
+        <label for="name">{{T "Name"}}</label>
         <input type="text" name="name" id="name" required value="{{.Transformation.Name}}">
     </div>
     <div class="form-group">
-        <label for="engine">Движок</label>
+        <label for="engine">{{T "Engine"}}</label>
         <select name="engine" id="engine" required>
             <option value="javascript" {{if eq .Transformation.Engine "javascript"}}selected{{end}}>JavaScript (Goja)</option>
             <option value="starlark" {{if eq .Transformation.Engine "starlark"}}selected{{end}}>Starlark (Python-like)</option>
         </select>
     </div>
     <div class="form-group">
-        <label for="script">Скрипт</label>
+        <label for="script">{{T "Script"}}</label>
         <textarea name="script" id="script" rows="15" style="width: 100%; font-family: monospace;">{{.Transformation.Script}}</textarea>
     </div>
-    <button type="submit" class="btn">Сохранить изменения</button>
+    <button type="submit" class="btn">{{T "Save Changes"}}</button>
 </form>
 
 <details style="margin-top: 2em; border: 1px solid #ccc; padding: 10px; border-radius: 5px;">
-    <summary style="font-weight: bold; cursor: pointer; padding-bottom: 5px;">Помощь по написанию скриптов для трансформаций</summary>
-    <p>Скрипты трансформации используются для изменения входящих сообщений перед их маршрутизацией к назначению. Скрипт получает тело сообщения и заголовки, и должен вернуть измененное тело сообщения или <code>null</code>/<code>None</code> для фильтрации.</p>
+    <summary style="font-weight: bold; cursor: pointer; padding-bottom: 5px;">{{T "Help with writing scripts for transformations"}}</summary>
+    <p>{{T "Transformation scripts are used to modify incoming messages before they are routed to their destination. The script receives the message body and headers, and should return the modified message body or `null`/`None` to filter the message."}}</p>
 
-    <h4>Основные принципы:</h4>
+    <h4>{{T "Basic Principles:"}}</h4>
     <ul>
-        <li><strong>Входные данные:</strong>
+        <li><strong>{{T "Input Data:"}}</strong>
             <ul>
-                <li><code>message</code>: Объект, представляющий тело входящего сообщения (JSON).</li>
-                <li><code>headers</code>: Объект, содержащий заголовки входящего сообщения.</li>
+                <li><code>message</code>: {{T "`message`: An object representing the body of the incoming message (JSON)."}}</li>
+                <li><code>headers</code>: {{T "`headers`: An object containing the headers of the incoming message."}}</li>
             </ul>
         </li>
-        <li><strong>Возвращаемое значение:</strong> Скрипт <strong>обязательно</strong> должен возвращать JSON-совместимый объект, который станет новым телом сообщения.</li>
-        <li><strong>Фильтрация сообщений:</strong> Если скрипт возвращает <code>null</code> (JavaScript) или <code>None</code> (Starlark), сообщение будет отфильтровано и не будет отправлено в канал назначения.</li>
-        <li><strong>Обработка ошибок:</strong> Любые ошибки, возникающие в процессе выполнения скрипта, будут регистрироваться в логах ESB.</li>
-        <li><strong>Доступные глобальные объекты:</strong>
+        <li><strong>{{T "Return Value:"}}</strong> {{T "The script MUST return a JSON-compatible object that will become the new message body."}}</li>
+        <li><strong>{{T "Message Filtering:"}}</strong> {{T "If the script returns `null` (JavaScript) or `None` (Starlark), the message will be filtered and will not be sent to the destination channel."}}</li>
+        <li><strong>{{T "Error Handling:"}}</strong> {{T "Any errors that occur during script execution will be logged in the ESB logs."}}</li>
+        <li><strong>{{T "Available Global Objects:"}}</strong>
             <ul>
-                <li><code>log</code>: Объект для логирования информации в консоль ESB (например, <code>log.info("Мое сообщение")</code>, <code>log.warn("Предупреждение")</code>, <code>log.error("Ошибка")</code>).</li>
+                <li><code>log</code>: {{T "`log`: An object for logging information to the ESB console (e.g., `log.info(\"My message\")`, `log.warn(\"Warning\")`, `log.error(\"Error\")`)."}}</li>
             </ul>
         </li>
     </ul>
 
-    <h4>Примеры скриптов:</h4>
+    <h4>{{T "Script Examples:"}}</h4>
 
-    <h5>JavaScript (Goja)</h5>
-    <p>Пример добавления поля к сообщению и фильтрации по условию:</p>
+    <h5>{{T "JavaScript (Goja)"}}</h5>
+    <p>{{T "Example of changing a field and conditional filtering:"}}</p>
     <pre><code class="language-javascript">
         function transform(message, headers) {
-            log.info("Входящее сообщение: " + JSON.stringify(message));
-            log.info("Заголовки: " + JSON.stringify(headers));
+            log.info("{{T "log.info(\\\"Incoming message: \\\" + JSON.stringify(message));"}}");
+            log.info("{{T "log.info(\\\"Headers: \\\" + JSON.stringify(headers));"}}");
 
-            // Добавляем новое поле
+            // {{T "// Add a new field"}}
             message.processed_by = "esb-transformer";
 
-            // Фильтруем сообщение, если поле "status" равно "draft"
+            // {{T "// Filter the message if the 'status' field is 'draft'"}}
             if (message.status === "draft") {
-                log.info("Сообщение со статусом 'draft' отфильтровано.");
-                return null; // Отфильтровать сообщение
+                log.info("{{T "log.info(\\\"Message with status 'draft' has been filtered.\\\");"}}");
+                return null; // {{T "return null; // Filter the message"}}
             }
 
-            return message; // Возвращаем измененное сообщение
+            return message; // {{T "return message; // Return the modified message"}}
         }
 
-        // Скрипт должен возвращать функцию transform
+        // {{T "// The script must return a transform function"}}
         transform(message, headers);
     </code></pre>
 
-    <p>Пример подготовки сообщения для условной маршрутизации (добавление routing_key):</p>
+    <p>{{T "Example of preparing a message for conditional routing (adding a routing_key):"}}</p>
     <pre><code class="language-javascript">
         function transform(message, headers) {
-            // Предположим, что у нас есть поле "type" в сообщении
+            // {{T "// Assume we have a 'type' field in the message"}}
             if (message.type === "order") {
                 message.routing_key = "orders.new";
             } else if (message.type === "cancel") {
@@ -84,53 +84,53 @@
             } else {
                 message.routing_key = "orders.default";
             }
-            log.info("Сообщение подготовлено для маршрутизации с ключом: " + message.routing_key);
+            log.info("{{T "log.info(\\\"Message prepared for routing with key: \\\" + message.routing_key);"}}");
             return message;
         }
         transform(message, headers);
     </code></pre>
 
-    <h5>Starlark (Python-подобный)</h5>
-    <p>Пример изменения поля и условной фильтрации:</p>
+    <h5>{{T "Starlark (Python-like)"}}</h5>
+    <p>{{T "Example of changing a field and conditional filtering:"}}</p>
     <pre><code class="language-python">
         def transform(message, headers):
-            log.info("Входящее сообщение: %s" % message)
-            log.info("Заголовки: %s" % headers)
+            log.info("{{T "log.info(\\\"Incoming message: %s\\\" % message)"}}")
+            log.info("{{T "log.info(\\\"Headers: %s\\\" % headers)"}}")
 
-            # Изменяем поле
+            # {{T "# Change a field"}}
             message["status"] = "processed"
 
-            # Фильтруем сообщение, если в заголовках есть "X-Ignore"
+            # {{T "# Filter the message if 'X-Ignore' is in the headers"}}
             if "X-Ignore" in headers:
-                log.info("Сообщение с заголовком 'X-Ignore' отфильтровано.")
-                return None # Отфильтровать сообщение
+                log.info("{{T "log.info(\\\"Message with header 'X-Ignore' has been filtered.\\\")"}}")
+                return None # {{T "return None # Filter the message"}}
 
-            return message # Возвращаем измененное сообщение
+            return message # {{T "return message # Return the modified message"}}
 
-        # Скрипт должен возвращать функцию transform
+        # {{T "# The script must return a transform function"}}
         transform(message, headers)
     </code></pre>
 
-    <p>Пример подготовки сообщения для условной маршрутизации (добавление routing_key):</p>
+    <p>{{T "Example of preparing a message for conditional routing (adding a routing_key):"}}</p>
     <pre><code class="language-python">
         def transform(message, headers):
-            # Предположим, что у нас есть поле "type" в сообщении
+            # {{T "# Assume we have a 'type' field in the message"}}
             if message.get("type") == "order":
                 message["routing_key"] = "orders.new"
             elif message.get("type") == "cancel":
                 message["routing_key"] = "orders.cancelled"
             else:
                 message["routing_key"] = "orders.default"
-            log.info("Сообщение подготовлено для маршрутизации с ключом: %s" % message["routing_key"])
+            log.info("{{T "log.info(\\\"Message prepared for routing with key: %s\\\" % message[\\\"routing_key\\\"])"}}")
             return message
         transform(message, headers)
     </code></pre>
 
-    <p><strong>Важно:</strong> Убедитесь, что ваш скрипт всегда возвращает объект (даже если он пустой <code>{}</code>) или <code>null</code>/<code>None</code>. Фактическое решение о маршрутизации принимается маршрутизатором ESB на основе измененного сообщения (например, по добавленному <code>routing_key</code>).</p>
+    <p><strong>{{T "Important:"}}</strong> {{T "Important: Make sure your script always returns an object (even if it's an empty `{}`) or `null`/`None`. The actual routing decision is made by the ESB router based on the modified message (e.g., by the added `routing_key`)."}}</p>
 </details>
 
 {{else}}
-<p>Трансформация не найдена.</p>
+<p>{{T "Transformation not found."}}</p>
 {{end}}
 
 {{end}}

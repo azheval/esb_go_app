@@ -1,11 +1,11 @@
 {{define "content"}}
-    <a href="/admin/integrations">&larr; Назад к списку интеграций</a>
+    <a href="/admin/integrations">&larr; {{T "Back to integrations list"}}</a>
 
     {{if .Integration}}
-    <h1>Интеграция: {{.Integration.Name}}</h1>
+    <h1>{{T "Integration:"}} {{.Integration.Name}}</h1>
     <p>{{.Integration.Description}}</p>
 
-    <h2 style="margin-top: 2em;">Диаграмма процесса</h2>
+    <h2 style="margin-top: 2em;">{{T "Process Diagram"}}</h2>
     <div class="mermaid-container">
         <pre class="mermaid">
             {{.MermaidDiagram}}
@@ -13,15 +13,15 @@
     </div>
 
 
-    <h2 style="margin-top: 2em;">Сборщики</h2>
+    <h2 style="margin-top: 2em;">{{T "Collectors"}}</h2>
     {{if .Collectors}}
     <table>
         <thead>
             <tr>
-                <th>Название</th>
-                <th>Расписание</th>
-                <th>Движок</th>
-                <th>Создан</th>
+                <th>{{T "Name"}}</th>
+                <th>{{T "Schedule"}}</th>
+                <th>{{T "Engine"}}</th>
+                <th>{{T "Created"}}</th>
             </tr>
         </thead>
         <tbody>
@@ -36,19 +36,19 @@
         </tbody>
     </table>
     {{else}}
-    <p>Для этой интеграции нет сборщиков.</p>
+    <p>{{T "No collectors for this integration."}}</p>
     {{end}}
 
-    <h2 style="margin-top: 2em;">Маршруты</h2>
+    <h2 style="margin-top: 2em;">{{T "Routes"}}</h2>
     {{if .Routes}}
     <table>
         <thead>
             <tr>
-                <th>Название</th>
-                <th>Источник</th>
-                <th>Назначение / Трансформация</th>
-                <th>Тип</th>
-                <th>Создан</th>
+                <th>{{T "Name"}}</th>
+                <th>{{T "Source"}}</th>
+                <th>{{T "Destination / Transformation"}}</th>
+                <th>{{T "Type"}}</th>
+                <th>{{T "Created"}}</th>
             </tr>
         </thead>
         <tbody>
@@ -61,7 +61,7 @@
                 </td>
                 <td>
                     {{if .TransformationID}}
-                        <strong>Трансформация:</strong> {{.TransformationName}}<br>
+                        <strong>{{T "Transformation:"}}</strong> {{.TransformationName}}<br>
                         <hr style="margin: 5px 0; border-color: #eee;">
                     {{end}}
                     <strong>{{.DestinationAppName}}</strong><br>
@@ -74,11 +74,11 @@
         </tbody>
     </table>
     {{else}}
-    <p>Для этой интеграции нет маршрутов.</p>
+    <p>{{T "No routes for this integration."}}</p>
     {{end}}
 
     {{else}}
-    <p>Интеграция не найдена.</p>
+    <p>{{T "Integration not found."}}</p>
     {{end}}
 <script type="module">
     import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';

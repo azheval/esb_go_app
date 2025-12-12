@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"esb-go-app/i18n"
 	"esb-go-app/rabbitmq"
 	"esb-go-app/scripting"
 	"esb-go-app/storage"
@@ -16,14 +17,16 @@ type Handler struct {
 	RabbitMQ         *rabbitmq.RabbitMQ
 	Logger           *slog.Logger
 	scriptingService *scripting.Service
+	I18n             *i18n.Service
 }
 
-func NewHandler(s *storage.Store, r *rabbitmq.RabbitMQ, l *slog.Logger, ss *scripting.Service) *Handler {
+func NewHandler(s *storage.Store, r *rabbitmq.RabbitMQ, l *slog.Logger, ss *scripting.Service, i18n *i18n.Service) *Handler {
 	return &Handler{
 		Store:            s,
 		RabbitMQ:         r,
 		Logger:           l,
 		scriptingService: ss,
+		I18n:             i18n,
 	}
 }
 
@@ -121,8 +124,8 @@ func (h *Handler) handleGetMetadataChannels(w http.ResponseWriter, r *http.Reque
 			access = "READ_ONLY"
 		}
 		result = append(result, MetadataChannel{
-			Process:            "main", // Заглушка, так как нет процессов
-			ProcessDescription: "Основной процесс",
+			Process:            h.I18n.Sprintf(r.Header.Get("Accept-Language"), "main"), 
+			ProcessDescription: h.I18n.Sprintf(r.Header.Get("Accept-Language"), "Main process"),
 			Channel:            ch.Name,
 			ChannelDescription: ch.Direction,
 			Access:             access,
@@ -170,7 +173,7 @@ func (h *Handler) handleGetRuntimeChannels(w http.ResponseWriter, r *http.Reques
 
 	responseBody := map[string]interface{}{
 		"items": items,
-		"port":  5672, // Заглушка
+		"port":  5672,
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")

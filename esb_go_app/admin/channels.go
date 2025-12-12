@@ -50,31 +50,34 @@ func ChannelRoutes(h *Handler, w http.ResponseWriter, r *http.Request, appID str
 }
 
 func (h *Handler) handleViewChannel(w http.ResponseWriter, r *http.Request, channelID string) {
+	lang := h.determineLanguage(r)
 	channel, err := h.Store.GetChannelByID(channelID)
 	if err != nil {
-		h.renderError(w, "app_details.html", "Failed to retrieve channel: "+err.Error(), http.StatusInternalServerError)
+		h.renderError(w, "app_details.html", h.I18n.Sprintf(lang, "Failed to retrieve channel: %s", err.Error()), http.StatusInternalServerError, r)
 		return
 	}
 	if channel == nil {
-		h.renderError(w, "app_details.html", "Channel not found.", http.StatusNotFound)
+		h.renderError(w, "app_details.html", h.I18n.Sprintf(lang, "Channel not found."), http.StatusNotFound, r)
 		return
 	}
 
 	data := PageData{
-		Channel: channel,
+		Channel:        channel,
+		AcceptLanguage: lang,
 	}
 
 	status := r.URL.Query().Get("status")
 	if status == "updated" {
-		data.StatusMessage = "Канал успешно обновлен!"
+		data.StatusMessage = h.I18n.Sprintf(lang, "Channel updated successfully!")
 	}
 
 	h.renderTemplate(w, "channel_details.html", data)
 }
 
 func (h *Handler) handleCreateChannel(w http.ResponseWriter, r *http.Request, appID string) {
+	lang := h.determineLanguage(r)
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Failed to parse form", http.StatusBadRequest)
+		h.renderError(w, "app_details.html", h.I18n.Sprintf(lang, "Failed to parse form"), http.StatusBadRequest, r)
 		return
 	}
 
@@ -88,19 +91,19 @@ func (h *Handler) handleCreateChannel(w http.ResponseWriter, r *http.Request, ap
 	}
 
 	if ch.Name == "" || ch.Destination == "" {
-		http.Error(w, "Channel name and destination are required.", http.StatusBadRequest)
+		h.renderError(w, "app_details.html", h.I18n.Sprintf(lang, "Channel name and destination are required."), http.StatusBadRequest, r)
 		return
 	}
 
 	if err := h.RabbitMQ.SetupDurableTopology(ch.Destination); err != nil {
 		h.Logger.Error("failed to setup durable rabbitmq topology", "error", err)
-		http.Error(w, "Failed to setup RabbitMQ topology.", http.StatusInternalServerError)
+		h.renderError(w, "app_details.html", h.I18n.Sprintf(lang, "Failed to setup RabbitMQ topology."), http.StatusInternalServerError, r)
 		return
 	}
 
 	if err := h.Store.CreateChannel(ch); err != nil {
 		h.Logger.Error("failed to save channel to db", "error", err)
-		http.Error(w, "Failed to save channel.", http.StatusInternalServerError)
+		h.renderError(w, "app_details.html", h.I18n.Sprintf(lang, "Failed to save channel."), http.StatusInternalServerError, r)
 		return
 	}
 
@@ -115,15 +118,16 @@ func (h *Handler) handleCreateChannel(w http.ResponseWriter, r *http.Request, ap
 }
 
 func (h *Handler) handleUpdateChannel(w http.ResponseWriter, r *http.Request, appID, channelID string) {
+	lang := h.determineLanguage(r)
 	if err := r.ParseForm(); err != nil {
-		h.renderError(w, "channel_details.html", "Failed to parse form.", http.StatusBadRequest)
+		h.renderError(w, "channel_details.html", h.I18n.Sprintf(lang, "Failed to parse form."), http.StatusBadRequest, r)
 		return
 	}
 
 	// Fetch the existing channel to update its properties
 	ch, err := h.Store.GetChannelByID(channelID)
 	if err != nil || ch == nil {
-		h.renderError(w, "channel_details.html", "Channel not found to update.", http.StatusNotFound)
+		h.renderError(w, "channel_details.html", h.I18n.Sprintf(lang, "Channel not found to update."), http.StatusNotFound, r)
 		return
 	}
 
@@ -134,12 +138,12 @@ func (h *Handler) handleUpdateChannel(w http.ResponseWriter, r *http.Request, ap
 	ch.FanoutMode = r.FormValue("fanout_mode") == "on"
 
 	if ch.Name == "" || ch.Destination == "" {
-		h.renderError(w, "channel_details.html", "Channel name and destination are required.", http.StatusBadRequest)
+		h.renderError(w, "channel_details.html", h.I18n.Sprintf(lang, "Channel name and destination are required."), http.StatusBadRequest, r)
 		return
 	}
 
 	if err := h.Store.UpdateChannel(ch); err != nil {
-		h.renderError(w, "channel_details.html", "Failed to update channel: "+err.Error(), http.StatusInternalServerError)
+		h.renderError(w, "channel_details.html", h.I18n.Sprintf(lang, "Failed to update channel: %s", err.Error()), http.StatusInternalServerError, r)
 		return
 	}
 
@@ -148,6 +152,7 @@ func (h *Handler) handleUpdateChannel(w http.ResponseWriter, r *http.Request, ap
 }
 
 func (h *Handler) handleTestExchange(w http.ResponseWriter, r *http.Request, appID string, channelID string) {
+	lang := h.determineLanguage(r)
 	channel, err := h.Store.GetChannelByID(channelID)
 	if err != nil || channel == nil {
 		h.Logger.Error("failed to get channel for test exchange", "error", err, "channel_id", channelID)
@@ -157,7 +162,7 @@ func (h *Handler) handleTestExchange(w http.ResponseWriter, r *http.Request, app
 
 	if r.Method == http.MethodPost {
 		if err := r.ParseForm(); err != nil {
-			http.Error(w, "Failed to parse form", http.StatusBadRequest)
+			h.renderError(w, "app_details.html", h.I18n.Sprintf(lang, "Failed to parse form"), http.StatusBadRequest, r)
 			return
 		}
 
@@ -174,20 +179,20 @@ func (h *Handler) handleTestExchange(w http.ResponseWriter, r *http.Request, app
 
 			app, err := h.Store.GetApplicationByID(appID)
 			if err != nil || app == nil {
-				h.renderError(w, "app_details.html", "Failed to retrieve application for test.", http.StatusInternalServerError)
+				h.renderError(w, "app_details.html", h.I18n.Sprintf(lang, "Failed to retrieve application for test."), http.StatusInternalServerError, r)
 				return
 			}
 			channels, err := h.Store.GetChannelsByAppID(appID)
 			if err != nil {
-				h.renderError(w, "app_details.html", "Failed to retrieve channels for test.", http.StatusInternalServerError)
+				h.renderError(w, "app_details.html", h.I18n.Sprintf(lang, "Failed to retrieve channels for test."), http.StatusInternalServerError, r)
 				return
 			}
-			data := PageData{Application: app, Channels: channels}
+			data := PageData{Application: app, Channels: channels, AcceptLanguage: lang}
 			if ok {
 				data.TestMessageReceived = body
-				data.TestMessageStatus = "1 сообщение получено и удалено из постоянной очереди."
+				data.TestMessageStatus = h.I18n.Sprintf(lang, "1 message received and deleted from the persistent queue.")
 			} else {
-				data.TestMessageStatus = "Постоянная очередь-хранилище пуста."
+				data.TestMessageStatus = h.I18n.Sprintf(lang, "The persistent queue store is empty.")
 			}
 			h.renderTemplate(w, "app_details.html", data)
 			return

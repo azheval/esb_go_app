@@ -9,6 +9,8 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+
+	"esb-go-app/i18n"
 )
 
 type PageData struct {
@@ -35,6 +37,8 @@ type PageData struct {
 	QueueRecon            *QueueReconResult
 	SelectedIntegrationID string
 	MermaidDiagram        string
+	AcceptLanguage string
+	Settings       map[string]string // To hold current settings
 }
 
 type Handler struct {
@@ -44,23 +48,42 @@ type Handler struct {
 	templates        map[string]*template.Template
 	scriptingService *scripting.Service
 	Version          string
+	I18n             *i18n.Service
 }
 
-func NewHandler(s *storage.Store, r *rabbitmq.RabbitMQ, l *slog.Logger, ss *scripting.Service, version string) *Handler {
+func NewHandler(s *storage.Store, r *rabbitmq.RabbitMQ, l *slog.Logger, ss *scripting.Service, version string, i18nService *i18n.Service) *Handler {
+	// Add a template function map
+	funcMap := template.FuncMap{
+		"T": func(key string, args ...interface{}) string {
+			// This is a placeholder that will be overridden by the real function in renderTemplate.
+			// It's needed so parsing doesn't fail.
+			return key
+		},
+		"substr": func(s string, start, length int) string {
+			if start < 0 || start > len(s) {
+				return ""
+			}
+			if start+length > len(s) {
+				return s[start:]
+			}
+			return s[start : start+length]
+		},
+	}
+
 	templates := make(map[string]*template.Template)
-	// Register all templates here
-	templates["admin.html"] = template.Must(template.ParseFiles("templates/admin.html", "templates/layout.html"))
-	templates["app_details.html"] = template.Must(template.ParseFiles("templates/app_details.html", "templates/layout.html"))
-	templates["channel_details.html"] = template.Must(template.ParseFiles("templates/channel_details.html", "templates/layout.html"))
-	templates["routes.html"] = template.Must(template.ParseFiles("templates/routes.html", "templates/layout.html"))
-	templates["route_details.html"] = template.Must(template.ParseFiles("templates/route_details.html", "templates/layout.html"))
-	templates["transformations.html"] = template.Must(template.ParseFiles("templates/transformations.html", "templates/layout.html"))
-	templates["transformation_details.html"] = template.Must(template.ParseFiles("templates/transformation_details.html", "templates/layout.html"))
-	templates["collectors.html"] = template.Must(template.ParseFiles("templates/collectors.html", "templates/layout.html"))
-	templates["collector_details.html"] = template.Must(template.ParseFiles("templates/collector_details.html", "templates/layout.html"))
-	templates["maintenance_queues.html"] = template.Must(template.ParseFiles("templates/maintenance_queues.html", "templates/layout.html"))
-	templates["integrations.html"] = template.Must(template.ParseFiles("templates/integrations.html", "templates/layout.html"))
-	templates["integration_details.html"] = template.Must(template.ParseFiles("templates/integration_details.html", "templates/layout.html"))
+	// Register all templates here and add the function map
+	templates["admin.html"] = template.Must(template.New("admin.html").Funcs(funcMap).ParseFiles("templates/admin.html", "templates/layout.html"))
+	templates["app_details.html"] = template.Must(template.New("app_details.html").Funcs(funcMap).ParseFiles("templates/app_details.html", "templates/layout.html"))
+	templates["channel_details.html"] = template.Must(template.New("channel_details.html").Funcs(funcMap).ParseFiles("templates/channel_details.html", "templates/layout.html"))
+	templates["routes.html"] = template.Must(template.New("routes.html").Funcs(funcMap).ParseFiles("templates/routes.html", "templates/layout.html"))
+	templates["route_details.html"] = template.Must(template.New("route_details.html").Funcs(funcMap).ParseFiles("templates/route_details.html", "templates/layout.html"))
+	templates["transformations.html"] = template.Must(template.New("transformations.html").Funcs(funcMap).ParseFiles("templates/transformations.html", "templates/layout.html"))
+	templates["transformation_details.html"] = template.Must(template.New("transformation_details.html").Funcs(funcMap).ParseFiles("templates/transformation_details.html", "templates/layout.html"))
+	templates["collectors.html"] = template.Must(template.New("collectors.html").Funcs(funcMap).ParseFiles("templates/collectors.html", "templates/layout.html"))
+	templates["collector_details.html"] = template.Must(template.New("collector_details.html").Funcs(funcMap).ParseFiles("templates/collector_details.html", "templates/layout.html"))
+	templates["maintenance_queues.html"] = template.Must(template.New("maintenance_queues.html").Funcs(funcMap).ParseFiles("templates/maintenance_queues.html", "templates/layout.html"))
+	templates["integrations.html"] = template.Must(template.New("integrations.html").Funcs(funcMap).ParseFiles("templates/integrations.html", "templates/layout.html"))
+	templates["integration_details.html"] = template.Must(template.New("integration_details.html").Funcs(funcMap).ParseFiles("templates/integration_details.html", "templates/layout.html"))
 
 	return &Handler{
 		Store:            s,
@@ -69,7 +92,25 @@ func NewHandler(s *storage.Store, r *rabbitmq.RabbitMQ, l *slog.Logger, ss *scri
 		templates:        templates,
 		scriptingService: ss,
 		Version:          version,
+		I18n:             i18nService, // Assign i18n service
 	}
+}
+
+// determineLanguage determines the language for the request.
+// It prioritizes the language set in the database, falling back to the Accept-Language header.
+func (h *Handler) determineLanguage(r *http.Request) string {
+	// 1. Try to get language from DB
+	lang, err := h.Store.GetSetting("language")
+	if err != nil {
+		h.Logger.Error("failed to get language setting from DB", "error", err)
+		// Fall through to using header
+	}
+	if lang != "" {
+		return lang
+	}
+
+	// 2. Fallback to Accept-Language header
+	return r.Header.Get("Accept-Language")
 }
 
 // ServeHTTP handles all incoming HTTP requests for the /admin path.
@@ -78,6 +119,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	path := strings.TrimPrefix(r.URL.Path, "/admin")
 	parts := strings.Split(strings.Trim(path, "/"), "/")
+
+	if r.Method == http.MethodPost && path == "/settings/update" {
+		h.handleUpdateSettings(w, r)
+		return
+	}
 
 	if len(parts) == 0 || parts[0] == "" {
 		if r.Method == http.MethodGet {
@@ -107,26 +153,58 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// This function will be removed once appRoutes correctly handles the root path.
-func (h *Handler) handleListAppsLegacy(w http.ResponseWriter, r *http.Request) {
-	apps, err := h.Store.GetAllApplications()
-	if err != nil {
-		h.renderError(w, "admin.html", fmt.Sprintf("Failed to retrieve applications: %v", err), http.StatusInternalServerError)
+// handleUpdateSettings saves application-wide settings.
+func (h *Handler) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		h.renderError(w, "admin.html", "Failed to parse form.", http.StatusBadRequest, r)
 		return
 	}
 
-	data := PageData{
-		Applications: apps,
-		Version:      h.Version,
+	lang := r.FormValue("language")
+	if lang != "" {
+		if err := h.Store.SetSetting("language", lang); err != nil {
+			h.renderError(w, "admin.html", "Failed to save language setting.", http.StatusInternalServerError, r)
+			return
+		}
 	}
+
+	http.Redirect(w, r, "/admin?status=settings_updated", http.StatusSeeOther)
+}
+
+// This function will be removed once appRoutes correctly handles the root path.
+func (h *Handler) handleListAppsLegacy(w http.ResponseWriter, r *http.Request) {
+	lang := h.determineLanguage(r)
+
+	apps, err := h.Store.GetAllApplications()
+	if err != nil {
+		h.renderError(w, "admin.html", fmt.Sprintf("Failed to retrieve applications: %v", err), http.StatusInternalServerError, r)
+		return
+	}
+
+	// Get language setting for the dropdown
+	currentLang, err := h.Store.GetSetting("language")
+	if err != nil {
+		h.Logger.Error("failed to get language setting for admin page", "error", err)
+	}
+
+	data := PageData{
+		Applications:   apps,
+		Version:        h.Version,
+		AcceptLanguage: lang,
+		Settings:       map[string]string{"language": currentLang},
+	}
+
 	status := r.URL.Query().Get("status")
 	if status == "created" {
-		data.StatusMessage = "Приложение успешно создано!"
+		data.StatusMessage = h.I18n.Sprintf(lang, "Application created successfully!")
 	} else if status == "recreated" {
-		data.StatusMessage = "Все очереди и маршруты успешно пересозданы!"
+		data.StatusMessage = h.I18n.Sprintf(lang, "All queues and routes recreated successfully!")
 	} else if pruned := r.URL.Query().Get("pruned"); pruned != "" {
-		data.StatusMessage = fmt.Sprintf("Удалено 'осиротевших' каналов: %s", pruned)
+		data.StatusMessage = h.I18n.Sprintf(lang, "Pruned orphan channels: %s", pruned)
+	} else if status == "settings_updated" {
+		data.StatusMessage = h.I18n.Sprintf(lang, "Settings updated successfully.")
 	}
+
 
 	h.renderTemplate(w, "admin.html", data)
 }
@@ -138,17 +216,35 @@ func (h *Handler) renderTemplate(w http.ResponseWriter, name string, data PageDa
 		return
 	}
 
+	// Clone the template set for each request to add dynamic functions
+	clonedTmpl, err := tmpl.Clone()
+	if err != nil {
+		h.Logger.Error("failed to clone template", "error", err, "template", name)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	// The FuncMap in NewHandler provides a placeholder for 'T'.
+	// Here we override it with a request-specific implementation.
+	clonedTmpl.Funcs(template.FuncMap{
+		"T": func(key string, args ...interface{}) string {
+			return h.I18n.Sprintf(data.AcceptLanguage, key, args...)
+		},
+	})
+
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	err := tmpl.ExecuteTemplate(w, "layout", data)
+	err = clonedTmpl.ExecuteTemplate(w, "layout", data)
 	if err != nil {
 		h.Logger.Error("failed to execute template", "error", err, "template", name)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 	}
 }
 
-func (h *Handler) renderError(w http.ResponseWriter, templateName string, errorMessage string, statusCode int) {
+func (h *Handler) renderError(w http.ResponseWriter, templateName string, errorMessage string, statusCode int, r *http.Request) {
+	lang := h.determineLanguage(r)
 	data := PageData{
-		ErrorMessage: errorMessage,
+		ErrorMessage:   errorMessage,
+		AcceptLanguage: lang,
 	}
 	w.WriteHeader(statusCode)
 	h.renderTemplate(w, templateName, data)

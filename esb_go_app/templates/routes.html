@@ -1,6 +1,6 @@
 {{define "content"}}
-<h1>Управление маршрутами</h1>
-<p>Здесь вы можете связывать исходящие (`outbound`) каналы одних приложений с входящими (`inbound`) каналами других.</p>
+<h1>{{T "Route Management"}}</h1>
+<p>{{T "Here you can link outbound channels of some applications to inbound channels of others."}}</p>
 
 {{if .StatusMessage}}
 <div class="status-message success">{{.StatusMessage}}</div>
@@ -9,25 +9,25 @@
 <div class="status-message error">{{.ErrorMessage}}</div>
 {{end}}
 
-<h2>Создать новый маршрут</h2>
+<h2>{{T "Create New Route"}}</h2>
 <form action="/admin/routes/create" method="post" style="margin-bottom: 2em;">
     <div class="form-group">
-        <label for="name">Название маршрута:</label>
+        <label for="name">{{T "Route Name:"}}</label>
         <input type="text" name="name" id="name" required>
     </div>
     <div class="form-group">
-        <label for="integration_id">Интеграция (опционально)</label>
+        <label for="integration_id">{{T "Integration (optional)"}}</label>
         <select name="integration_id" id="integration_id">
-            <option value="">-- Нет --</option>
+            <option value="">{{T "-- None --"}}</option>
             {{range .Integrations}}
             <option value="{{.ID}}">{{.Name}}</option>
             {{end}}
         </select>
     </div>
     <div class="form-group">
-        <label for="source_channel_id">Из канала (Source)</label>
+        <label for="source_channel_id">{{T "From Channel (Source)"}}</label>
         <select name="source_channel_id" id="source_channel_id" required>
-            <option value="">-- Выберите источник --</option>
+            <option value="">{{T "-- Select source --"}}</option>
             {{range .RouteSources}}
             <option value="{{.ID}}">{{.Name}}</option>
             {{end}}
@@ -35,17 +35,17 @@
     </div>
 
     <div class="form-group">
-        <label for="route_type">Тип маршрута</label>
+        <label for="route_type">{{T "Route Type"}}</label>
         <select name="route_type" id="route_type" onchange="toggleRouteFields()">
-            <option value="direct">Прямой (Direct)</option>
-            <option value="transform">С трансформацией (Transform)</option>
+            <option value="direct">{{T "Direct"}}</option>
+            <option value="transform">{{T "With Transformation"}}</option>
         </select>
     </div>
 
     <div id="transform-route-fields" class="form-group" style="display: none;">
-        <label for="transformation_id">Трансформация</label>
+        <label for="transformation_id">{{T "Transformation"}}</label>
         <select name="transformation_id" id="transformation_id">
-            <option value="">-- Выберите трансформацию --</option>
+            <option value="">{{T "-- Select transformation --"}}</option>
             {{range .Transformations}}
             <option value="{{.ID}}">{{.Name}} ({{.Engine}})</option>
             {{end}}
@@ -53,30 +53,30 @@
     </div>
 
     <div class="form-group">
-        <label for="destination_channel_id">В канал (Destination)</label>
+        <label for="destination_channel_id">{{T "To Channel (Destination)"}}</label>
         <select name="destination_channel_id" id="destination_channel_id">
-            <option value="">-- Выберите входящий канал --</option>
+            <option value="">{{T "-- Select inbound channel --"}}</option>
             {{range .InboundChannels}}
             <option value="{{.ID}}">{{.ApplicationName}} -> {{.Name}} (Dest: {{.Destination}})</option>
             {{end}}
         </select>
     </div>
 
-    <button type="submit" class="btn">Создать маршрут</button>
+    <button type="submit" class="btn">{{T "Create Route"}}</button>
 </form>
 
-<h2>Существующие маршруты</h2>
+<h2>{{T "Existing Routes"}}</h2>
 {{if .Routes}}
 <table>
     <thead>
         <tr>
-            <th>Название</th>
-            <th>Источник</th>
-            <th>Назначение / Трансформация</th>
-            <th>Тип</th>
-            <th>Интеграция</th>
-            <th>Создан</th>
-            <th>Действие</th>
+            <th>{{T "Name"}}</th>
+            <th>{{T "Source"}}</th>
+            <th>{{T "Destination / Transformation"}}</th>
+            <th>{{T "Type"}}</th>
+            <th>{{T "Integration"}}</th>
+            <th>{{T "Created"}}</th>
+            <th>{{T "Action"}}</th>
         </tr>
     </thead>
     <tbody>
@@ -89,7 +89,7 @@
             </td>
             <td>
                 {{if .TransformationID}}
-                    <strong>Трансформация:</strong> {{.TransformationName}}<br>
+                    <strong>{{T "Transformation:"}}</strong> {{.TransformationName}}<br>
                     <hr style="margin: 5px 0; border-color: #eee;">
                 {{end}}
                 <strong>{{.DestinationAppName}}</strong><br>
@@ -99,8 +99,8 @@
             <td>{{if .IntegrationName}}{{.IntegrationName}}{{else}}N/A{{end}}</td>
             <td>{{.CreatedAt.Format "2006-01-02 15:04:05"}}</td>
             <td>
-                <form action="/admin/routes/{{.ID}}/delete" method="post" onsubmit="return confirm('Вы уверены, что хотите удалить этот маршрут?');">
-                    <button type="submit" class="btn btn-danger">Удалить</button>
+                <form action="/admin/routes/{{.ID}}/delete" method="post" onsubmit="return confirm('{{T `Are you sure you want to delete this route?`}}');">
+                    <button type="submit" class="btn btn-danger">{{T "Delete"}}</button>
                 </form>
             </td>
         </tr>
@@ -108,7 +108,7 @@
     </tbody>
 </table>
 {{else}}
-<p>Пока не создано ни одного маршрута.</p>
+<p>{{T "No routes created yet."}}</p>
 {{end}}
 
 <script>

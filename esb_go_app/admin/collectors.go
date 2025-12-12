@@ -43,55 +43,59 @@ func CollectorRoutes(h *Handler, w http.ResponseWriter, r *http.Request, parts [
 }
 
 func (h *Handler) handleListCollectors(w http.ResponseWriter, r *http.Request) {
+	lang := h.determineLanguage(r)
 	collectors, err := h.Store.GetAllCollectors()
 	if err != nil {
-		h.renderError(w, "collectors.html", "Failed to retrieve collectors: "+err.Error(), http.StatusInternalServerError)
+		h.renderError(w, "collectors.html", h.I18n.Sprintf(lang, "Failed to retrieve collectors: %s", err.Error()), http.StatusInternalServerError, r)
 		return
 	}
 
 	integrations, err := h.Store.GetAllIntegrations()
 	if err != nil {
-		h.renderError(w, "collectors.html", "Failed to retrieve integrations: "+err.Error(), http.StatusInternalServerError)
+		h.renderError(w, "collectors.html", h.I18n.Sprintf(lang, "Failed to retrieve integrations: %s", err.Error()), http.StatusInternalServerError, r)
 		return
 	}
 
 	data := PageData{
-		Collectors:   collectors,
-		Integrations: integrations,
+		Collectors:     collectors,
+		Integrations:   integrations,
+		AcceptLanguage: lang,
 	}
 
 	status := r.URL.Query().Get("status")
 	if status == "created" {
-		data.StatusMessage = "Сборщик успешно создан!"
+		data.StatusMessage = h.I18n.Sprintf(lang, "Collector created successfully!")
 	} else if status == "deleted" {
-		data.StatusMessage = "Сборщик удален."
+		data.StatusMessage = h.I18n.Sprintf(lang, "Collector deleted.")
 	} else if status == "updated" {
-		data.StatusMessage = "Сборщик успешно обновлен."
+		data.StatusMessage = h.I18n.Sprintf(lang, "Collector updated successfully!")
 	}
 
 	h.renderTemplate(w, "collectors.html", data)
 }
 
 func (h *Handler) handleViewCollector(w http.ResponseWriter, r *http.Request, collectorID string) {
+	lang := h.determineLanguage(r)
 	collector, err := h.Store.GetCollectorByID(collectorID)
 	if err != nil {
-		h.renderError(w, "collectors.html", "Failed to retrieve collector: "+err.Error(), http.StatusInternalServerError)
+		h.renderError(w, "collectors.html", h.I18n.Sprintf(lang, "Failed to retrieve collector: %s", err.Error()), http.StatusInternalServerError, r)
 		return
 	}
 	if collector == nil {
-		h.renderError(w, "collectors.html", "Collector not found.", http.StatusNotFound)
+		h.renderError(w, "collectors.html", h.I18n.Sprintf(lang, "Collector not found."), http.StatusNotFound, r)
 		return
 	}
 
 	integrations, err := h.Store.GetAllIntegrations()
 	if err != nil {
-		h.renderError(w, "collector_details.html", "Failed to retrieve integrations: "+err.Error(), http.StatusInternalServerError)
+		h.renderError(w, "collector_details.html", h.I18n.Sprintf(lang, "Failed to retrieve integrations: %s", err.Error()), http.StatusInternalServerError, r)
 		return
 	}
 
 	data := PageData{
-		Collector:    collector,
-		Integrations: integrations,
+		Collector:      collector,
+		Integrations:   integrations,
+		AcceptLanguage: lang,
 	}
 	if collector.IntegrationID != nil {
 		data.SelectedIntegrationID = *collector.IntegrationID
@@ -101,8 +105,9 @@ func (h *Handler) handleViewCollector(w http.ResponseWriter, r *http.Request, co
 }
 
 func (h *Handler) handleCreateCollector(w http.ResponseWriter, r *http.Request) {
+	lang := h.determineLanguage(r)
 	if err := r.ParseForm(); err != nil {
-		h.renderError(w, "collectors.html", "Failed to parse form.", http.StatusBadRequest)
+		h.renderError(w, "collectors.html", h.I18n.Sprintf(lang, "Failed to parse form."), http.StatusBadRequest, r)
 		return
 	}
 
@@ -122,12 +127,12 @@ func (h *Handler) handleCreateCollector(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if collector.Name == "" || collector.Schedule == "" || collector.Engine == "" || collector.Script == "" {
-		h.renderError(w, "collectors.html", "Все поля, кроме интеграции, обязательны для заполнения.", http.StatusBadRequest)
+		h.renderError(w, "collectors.html", h.I18n.Sprintf(lang, "All fields except integration are required."), http.StatusBadRequest, r)
 		return
 	}
 
 	if err := h.Store.CreateCollector(collector); err != nil {
-		h.renderError(w, "collectors.html", "Failed to create collector: "+err.Error(), http.StatusInternalServerError)
+		h.renderError(w, "collectors.html", h.I18n.Sprintf(lang, "Failed to create collector: %s", err.Error()), http.StatusInternalServerError, r)
 		return
 	}
 
@@ -136,8 +141,9 @@ func (h *Handler) handleCreateCollector(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *Handler) handleUpdateCollector(w http.ResponseWriter, r *http.Request, collectorID string) {
+	lang := h.determineLanguage(r)
 	if err := r.ParseForm(); err != nil {
-		h.renderError(w, "collector_details.html", "Failed to parse form.", http.StatusBadRequest)
+		h.renderError(w, "collector_details.html", h.I18n.Sprintf(lang, "Failed to parse form."), http.StatusBadRequest, r)
 		return
 	}
 
@@ -157,12 +163,12 @@ func (h *Handler) handleUpdateCollector(w http.ResponseWriter, r *http.Request, 
 	}
 
 	if collector.Name == "" || collector.Schedule == "" || collector.Engine == "" || collector.Script == "" {
-		h.renderError(w, "collector_details.html", "Все поля, кроме интеграции, обязательны для заполнения.", http.StatusBadRequest)
+		h.renderError(w, "collector_details.html", h.I18n.Sprintf(lang, "All fields except integration are required."), http.StatusBadRequest, r)
 		return
 	}
 
 	if err := h.Store.UpdateCollector(collector); err != nil {
-		h.renderError(w, "collector_details.html", "Failed to update collector: "+err.Error(), http.StatusInternalServerError)
+		h.renderError(w, "collector_details.html", h.I18n.Sprintf(lang, "Failed to update collector: %s", err.Error()), http.StatusInternalServerError, r)
 		return
 	}
 
@@ -171,8 +177,9 @@ func (h *Handler) handleUpdateCollector(w http.ResponseWriter, r *http.Request, 
 }
 
 func (h *Handler) handleDeleteCollector(w http.ResponseWriter, r *http.Request, collectorID string) {
+	lang := h.determineLanguage(r)
 	if err := h.Store.DeleteCollector(collectorID); err != nil {
-		h.renderError(w, "collectors.html", "Failed to delete collector: "+err.Error(), http.StatusInternalServerError)
+		h.renderError(w, "collectors.html", h.I18n.Sprintf(lang, "Failed to delete collector: %s", err.Error()), http.StatusInternalServerError, r)
 		return
 	}
 

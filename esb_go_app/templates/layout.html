@@ -1,10 +1,10 @@
 {{define "layout"}}
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="{{substr .AcceptLanguage 0 2}}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Админ-панель ESB</title>
+    <title>{{T "ESB Admin Panel"}}</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; background-color: #f0f2f5; }
         header { background: #fff; padding: 10px 20px; border-bottom: 1px solid #ddd; display: flex; align-items: center; }
@@ -49,10 +49,10 @@
     <header>
         <a href="/admin" class="logo">ESB Admin</a>
         <nav>
-            <a href="/admin/integrations" class="nav-button">Интеграции</a>
-            <a href="/admin/routes" class="nav-button">Маршруты</a>
-            <a href="/admin/transformations" class="nav-button">Трансформации</a>
-            <a href="/admin/collectors" class="nav-button">Сборщики</a>
+            <a href="/admin/integrations" class="nav-button">{{T "Integrations"}}</a>
+            <a href="/admin/routes" class="nav-button">{{T "Routes"}}</a>
+            <a href="/admin/transformations" class="nav-button">{{T "Transformations"}}</a>
+            <a href="/admin/collectors" class="nav-button">{{T "Collectors"}}</a>
         </nav>
     </header>
     <main>

@@ -2,9 +2,9 @@
 
 {{define "content"}}
     {{if .Channel}}
-        <a href="/admin/app/{{.Channel.ApplicationID}}">&larr; Назад к приложению</a>
+        <a href="/admin/app/{{.Channel.ApplicationID}}">&larr; {{T "Back to application"}}</a>
 
-        <h1>Канал: {{.Channel.Name}}</h1>
+        <h1>{{T "Channel:"}} {{.Channel.Name}}</h1>
 
         {{if .StatusMessage}}
         <div class="status-message success">{{.StatusMessage}}</div>
@@ -13,29 +13,29 @@
         <div class="status-message error">{{.ErrorMessage}}</div>
         {{end}}
 
-        <h2>Детали</h2>
+        <h2>{{T "Details"}}</h2>
         <table class="details-table">
             <tr><th>ID</th><td><code>{{.Channel.ID}}</code></td></tr>
-            <tr><th>Application ID</th><td><code>{{.Channel.ApplicationID}}</code></td></tr>
-            <tr><th>Название</th><td>{{.Channel.Name}}</td></tr>
-            <tr><th>Направление</th><td>{{.Channel.Direction}}</td></tr>
-            <tr><th>Назначение (Очередь)</th><td><code>{{.Channel.Destination}}</code></td></tr>
-            <tr><th>Режим Fan-out</th><td>{{if .Channel.FanoutMode}}✓{{else}}✗{{end}}</td></tr>
-            <tr><th>Создан</th><td>{{.Channel.CreatedAt.Format "2006-01-02 15:04:05"}}</td></tr>
+            <tr><th>{{T "Application ID"}}</th><td><code>{{.Channel.ApplicationID}}</code></td></tr>
+            <tr><th>{{T "Name"}}</th><td>{{.Channel.Name}}</td></tr>
+            <tr><th>{{T "Direction"}}</th><td>{{.Channel.Direction}}</td></tr>
+            <tr><th>{{T "Destination (Queue)"}}</th><td><code>{{.Channel.Destination}}</code></td></tr>
+            <tr><th>{{T "Fan-out Mode"}}</th><td>{{if .Channel.FanoutMode}}✓{{else}}✗{{end}}</td></tr>
+            <tr><th>{{T "Created"}}</th><td>{{.Channel.CreatedAt.Format "2006-01-02 15:04:05"}}</td></tr>
         </table>
 
-        <h2 style="margin-top: 2em;">Редактировать канал</h2>
+        <h2 style="margin-top: 2em;">{{T "Edit Channel"}}</h2>
         <form action="/admin/app/{{.Channel.ApplicationID}}/channel/{{.Channel.ID}}/update" method="POST">
             <div class="form-group">
-                <label for="name">Название канала:</label>
+                <label for="name">{{T "Channel Name:"}}</label>
                 <input type="text" id="name" name="name" value="{{.Channel.Name}}" required>
             </div>
             <div class="form-group">
-                <label for="destination">Назначение (очередь):</label>
+                <label for="destination">{{T "Destination (Queue):"}}</label>
                 <input type="text" id="destination" name="destination" value="{{.Channel.Destination}}" required>
             </div>
             <div class="form-group">
-                <label for="direction">Направление:</label>
+                <label for="direction">{{T "Direction:"}}</label>
                 <select id="direction" name="direction">
                     <option value="inbound" {{if eq .Channel.Direction "inbound"}}selected{{end}}>inbound</option>
                     <option value="outbound" {{if eq .Channel.Direction "outbound"}}selected{{end}}>outbound</option>
@@ -43,12 +43,12 @@
             </div>
             <div class="form-group">
                 <input type="checkbox" id="fanout_mode" name="fanout_mode" value="on" {{if .Channel.FanoutMode}}checked{{end}}>
-                <label for="fanout_mode">Режим Fan-out (раздавать копии подписчикам)</label>
+                <label for="fanout_mode">{{T "Fan-out mode (distribute copies to subscribers)"}}</label>
             </div>
-            <button type="submit" class="btn btn-primary">Обновить канал</button>
+            <button type="submit" class="btn btn-primary">{{T "Update Channel"}}</button>
         </form>
 
     {{else}}
-        <p>Канал не найден.</p>
+        <p>{{T "Channel not found."}}</p>
     {{end}}
 {{end}}

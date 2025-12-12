@@ -1,10 +1,9 @@
 {{define "content"}}
-    <a href="/admin">&larr; Назад на главную</a>
-    <h1>Сверка очередей RabbitMQ</h1>
+    <a href="/admin">&larr; {{T "Back to main page"}}</a>
+    <h1>{{T "RabbitMQ Queue Reconciliation"}}</h1>
     <p>
-        Эта страница сравнивает каналы, определенные в базе данных приложения, с реальными очередями в RabbitMQ.
-        Это помогает найти "осиротевшие" очереди (которые существуют в RabbitMQ, но больше не используются в ESB)
-        для ручной очистки.
+        {{T "This page compares the channels defined in the application database with the actual queues in RabbitMQ."}}
+        {{T "This helps to find 'orphaned' queues (which exist in RabbitMQ but are no longer used in the ESB) for manual cleanup."}}
     </p>
 
     {{if .ErrorMessage}}
@@ -12,8 +11,8 @@
     {{else if .QueueRecon}}
         <div class="grid-container">
             <div>
-                <h3>"Осиротевшие" очереди в RabbitMQ</h3>
-                <p>Эти очереди существуют в RabbitMQ, но для них нет соответствующих каналов в базе данных ESB. Их можно безопасно удалить в панели управления RabbitMQ.</p>
+                <h3>{{T "'Orphaned' queues in RabbitMQ"}}</h3>
+                <p>{{T "These queues exist in RabbitMQ, but there are no corresponding channels in the ESB database. They can be safely deleted in the RabbitMQ management panel."}}</p>
                 {{if .QueueRecon.OrphanedQueues}}
                     <ul class="queue-list">
                         {{range .QueueRecon.OrphanedQueues}}
@@ -21,12 +20,12 @@
                         {{end}}
                     </ul>
                 {{else}}
-                    <p>Осиротевших очередей не найдено.</p>
+                    <p>{{T "No orphaned queues found."}}</p>
                 {{end}}
             </div>
             <div>
-                <h3>Отсутствующие очереди в RabbitMQ</h3>
-                <p>Для этих каналов есть запись в базе данных ESB, но соответствующая очередь в RabbitMQ не найдена. Возможно, их нужно создать заново.</p>
+                <h3>{{T "Missing queues in RabbitMQ"}}</h3>
+                <p>{{T "For these channels, there is an entry in the ESB database, but the corresponding queue in RabbitMQ was not found. They may need to be created again."}}</p>
                 {{if .QueueRecon.MissingQueues}}
                 <ul class="queue-list">
                     {{range .QueueRecon.MissingQueues}}
@@ -34,12 +33,12 @@
                     {{end}}
                 </ul>
                 {{else}}
-                <p>Отсутствующих очередей не найдено.</p>
+                <p>{{T "No missing queues found."}}</p>
                 {{end}}
             </div>
         </div>
 
-        <h3 style="margin-top: 2em;">Совпадающие очереди</h3>
+        <h3 style="margin-top: 2em;">{{T "Matching queues"}}</h3>
         {{if .QueueRecon.MatchingQueues}}
         <ul class="queue-list">
             {{range .QueueRecon.MatchingQueues}}
@@ -47,7 +46,7 @@
             {{end}}
         </ul>
         {{else}}
-            <p>Совпадающих очередей не найдено.</p>
+            <p>{{T "No matching queues found."}}</p>
         {{end}}
     {{end}}
 {{end}}

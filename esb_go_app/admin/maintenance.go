@@ -24,8 +24,9 @@ func MaintenanceRoutes(h *Handler, w http.ResponseWriter, r *http.Request, parts
 }
 
 func (h *Handler) handleMaintenanceActions(w http.ResponseWriter, r *http.Request) {
+	lang := h.determineLanguage(r)
 	if err := r.ParseForm(); err != nil {
-		h.renderError(w, "admin.html", "Failed to parse form.", http.StatusBadRequest)
+		h.renderError(w, "admin.html", h.I18n.Sprintf(lang, "Failed to parse form."), http.StatusBadRequest, r)
 		return
 	}
 
@@ -34,14 +35,15 @@ func (h *Handler) handleMaintenanceActions(w http.ResponseWriter, r *http.Reques
 	case "prune_orphaned_channels":
 		h.handlePruneOrphanedChannels(w, r)
 	default:
-		h.renderError(w, "admin.html", "Unknown maintenance action.", http.StatusBadRequest)
+		h.renderError(w, "admin.html", h.I18n.Sprintf(lang, "Unknown maintenance action."), http.StatusBadRequest, r)
 	}
 }
 
 func (h *Handler) handlePruneOrphanedChannels(w http.ResponseWriter, r *http.Request) {
+	lang := h.determineLanguage(r)
 	count, err := h.Store.DeleteOrphanedChannels()
 	if err != nil {
-		h.renderError(w, "admin.html", "Failed to prune orphaned channels: "+err.Error(), http.StatusInternalServerError)
+		h.renderError(w, "admin.html", h.I18n.Sprintf(lang, "Failed to prune orphaned channels: %s", err.Error()), http.StatusInternalServerError, r)
 		return
 	}
 	h.Logger.Info("pruned orphaned channels", "count", count)
@@ -57,10 +59,11 @@ type QueueReconResult struct {
 }
 
 func (h *Handler) handleQueueReconciliation(w http.ResponseWriter, r *http.Request) {
+	lang := h.determineLanguage(r)
 	// 1. Get all queues from the database (by getting all channels)
 	dbChannels, err := h.Store.GetAllChannels()
 	if err != nil {
-		h.renderError(w, "maintenance_queues.html", "Failed to retrieve channels from database: "+err.Error(), http.StatusInternalServerError)
+		h.renderError(w, "maintenance_queues.html", h.I18n.Sprintf(lang, "Failed to retrieve channels from database: %s", err.Error()), http.StatusInternalServerError, r)
 		return
 	}
 	dbQueueMap := make(map[string]bool)
@@ -77,8 +80,8 @@ func (h *Handler) handleQueueReconciliation(w http.ResponseWriter, r *http.Reque
 	// 2. Get all queues from RabbitMQ Management API
 	rabbitQueues, err := h.RabbitMQ.ListQueues()
 	if err != nil {
-		errMsg := fmt.Sprintf("Не удалось получить список очередей из RabbitMQ Management API. Убедитесь, что API доступен и учетные данные верны в config.json. Ошибка: %v", err)
-		h.renderError(w, "maintenance_queues.html", errMsg, http.StatusInternalServerError)
+		errMsg := h.I18n.Sprintf(lang, "Could not get queue list from RabbitMQ Management API. Ensure the API is accessible and credentials are correct in config.json. Error: %v", err)
+		h.renderError(w, "maintenance_queues.html", errMsg, http.StatusInternalServerError, r)
 		return
 	}
 
@@ -112,6 +115,7 @@ func (h *Handler) handleQueueReconciliation(w http.ResponseWriter, r *http.Reque
 
 	// 4. Render the template
 	h.renderTemplate(w, "maintenance_queues.html", PageData{
-		QueueRecon: result,
+		QueueRecon:     result,
+		AcceptLanguage: lang,
 	})
 }

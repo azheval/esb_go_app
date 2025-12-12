@@ -43,49 +43,54 @@ func TransformationRoutes(h *Handler, w http.ResponseWriter, r *http.Request, pa
 }
 
 func (h *Handler) handleListTransformations(w http.ResponseWriter, r *http.Request) {
+	lang := h.determineLanguage(r)
 	transformations, err := h.Store.GetAllTransformations()
 	if err != nil {
-		h.renderError(w, "transformations.html", "Failed to retrieve transformations: "+err.Error(), http.StatusInternalServerError)
+		h.renderError(w, "transformations.html", h.I18n.Sprintf(lang, "Failed to retrieve transformations: %s", err.Error()), http.StatusInternalServerError, r)
 		return
 	}
 
 	data := PageData{
 		Transformations: transformations,
+		AcceptLanguage:  lang,
 	}
 
 	status := r.URL.Query().Get("status")
 	if status == "created" {
-		data.StatusMessage = "Трансформация успешно создана!"
+		data.StatusMessage = h.I18n.Sprintf(lang, "Transformation created successfully!")
 	} else if status == "deleted" {
-		data.StatusMessage = "Трансформация удалена."
+		data.StatusMessage = h.I18n.Sprintf(lang, "Transformation deleted.")
 	} else if status == "updated" {
-		data.StatusMessage = "Трансформация успешно обновлена."
+		data.StatusMessage = h.I18n.Sprintf(lang, "Transformation updated successfully!")
 	}
 
 	h.renderTemplate(w, "transformations.html", data)
 }
 
 func (h *Handler) handleViewTransformation(w http.ResponseWriter, r *http.Request, transformationID string) {
+	lang := h.determineLanguage(r)
 	transformation, err := h.Store.GetTransformationByID(transformationID)
 	if err != nil {
-		h.renderError(w, "transformations.html", "Failed to retrieve transformation: "+err.Error(), http.StatusInternalServerError)
+		h.renderError(w, "transformations.html", h.I18n.Sprintf(lang, "Failed to retrieve transformation: %s", err.Error()), http.StatusInternalServerError, r)
 		return
 	}
 	if transformation == nil {
-		h.renderError(w, "transformations.html", "Transformation not found.", http.StatusNotFound)
+		h.renderError(w, "transformations.html", h.I18n.Sprintf(lang, "Transformation not found."), http.StatusNotFound, r)
 		return
 	}
 
 	data := PageData{
 		Transformation: transformation,
+		AcceptLanguage: lang,
 	}
 
 	h.renderTemplate(w, "transformation_details.html", data)
 }
 
 func (h *Handler) handleCreateTransformation(w http.ResponseWriter, r *http.Request) {
+	lang := h.determineLanguage(r)
 	if err := r.ParseForm(); err != nil {
-		h.renderError(w, "transformations.html", "Failed to parse form.", http.StatusBadRequest)
+		h.renderError(w, "transformations.html", h.I18n.Sprintf(lang, "Failed to parse form."), http.StatusBadRequest, r)
 		return
 	}
 
@@ -97,12 +102,12 @@ func (h *Handler) handleCreateTransformation(w http.ResponseWriter, r *http.Requ
 	}
 
 	if transformation.Name == "" || transformation.Engine == "" || transformation.Script == "" {
-		h.renderError(w, "transformations.html", "Name, engine, and script are required.", http.StatusBadRequest)
+		h.renderError(w, "transformations.html", h.I18n.Sprintf(lang, "Name, engine, and script are required."), http.StatusBadRequest, r)
 		return
 	}
 
 	if err := h.Store.CreateTransformation(transformation); err != nil {
-		h.renderError(w, "transformations.html", "Failed to create transformation: "+err.Error(), http.StatusInternalServerError)
+		h.renderError(w, "transformations.html", h.I18n.Sprintf(lang, "Failed to create transformation: %s", err.Error()), http.StatusInternalServerError, r)
 		return
 	}
 
@@ -111,8 +116,9 @@ func (h *Handler) handleCreateTransformation(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *Handler) handleUpdateTransformation(w http.ResponseWriter, r *http.Request, transformationID string) {
+	lang := h.determineLanguage(r)
 	if err := r.ParseForm(); err != nil {
-		h.renderError(w, "transformation_details.html", "Failed to parse form.", http.StatusBadRequest)
+		h.renderError(w, "transformation_details.html", h.I18n.Sprintf(lang, "Failed to parse form."), http.StatusBadRequest, r)
 		return
 	}
 
@@ -124,12 +130,12 @@ func (h *Handler) handleUpdateTransformation(w http.ResponseWriter, r *http.Requ
 	}
 
 	if transformation.Name == "" || transformation.Engine == "" || transformation.Script == "" {
-		h.renderError(w, "transformation_details.html", "Name, engine, and script are required.", http.StatusBadRequest)
+		h.renderError(w, "transformation_details.html", h.I18n.Sprintf(lang, "Name, engine, and script are required."), http.StatusBadRequest, r)
 		return
 	}
 
 	if err := h.Store.UpdateTransformation(transformation); err != nil {
-		h.renderError(w, "transformation_details.html", "Failed to update transformation: "+err.Error(), http.StatusInternalServerError)
+		h.renderError(w, "transformation_details.html", h.I18n.Sprintf(lang, "Failed to update transformation: %s", err.Error()), http.StatusInternalServerError, r)
 		return
 	}
 
@@ -138,8 +144,9 @@ func (h *Handler) handleUpdateTransformation(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *Handler) handleDeleteTransformation(w http.ResponseWriter, r *http.Request, transformationID string) {
+	lang := h.determineLanguage(r)
 	if err := h.Store.DeleteTransformation(transformationID); err != nil {
-		h.renderError(w, "transformations.html", "Failed to delete transformation: "+err.Error(), http.StatusInternalServerError)
+		h.renderError(w, "transformations.html", h.I18n.Sprintf(lang, "Failed to delete transformation: %s", err.Error()), http.StatusInternalServerError, r)
 		return
 	}
 

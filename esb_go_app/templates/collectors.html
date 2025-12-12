@@ -1,6 +1,6 @@
 {{define "content"}}
-<h1>Управление сборщиками</h1>
-<p>Сборщики - это автономные скрипты, которые запускаются по расписанию для получения данных из внешних источников и публикации их во внутренний канал.</p>
+<h1>{{T "Collector Management"}}</h1>
+<p>{{T "Collectors are autonomous scripts that run on a schedule to retrieve data from external sources and publish it to an internal channel."}}</p>
 
 {{if .StatusMessage}}
 <div class="status-message success">{{.StatusMessage}}</div>
@@ -9,50 +9,50 @@
 <div class="status-message error">{{.ErrorMessage}}</div>
 {{end}}
 
-<h2>Создать нового сборщика</h2>
+<h2>{{T "Create New Collector"}}</h2>
 <form action="/admin/collectors/create" method="post" style="margin-bottom: 2em;">
     <div class="form-group">
-        <label for="name">Название</label>
+        <label for="name">{{T "Name"}}</label>
         <input type="text" name="name" id="name" required>
     </div>
     <div class="form-group">
-        <label for="schedule">Расписание (Cron)</label>
+        <label for="schedule">{{T "Schedule (Cron)"}}</label>
         <input type="text" name="schedule" id="schedule" required placeholder="*/5 * * * *">
     </div>
     <div class="form-group">
-        <label for="integration_id">Интеграция (опционально)</label>
+        <label for="integration_id">{{T "Integration (optional)"}}</label>
         <select name="integration_id" id="integration_id">
-            <option value="">-- Нет --</option>
+            <option value="">{{T "-- None --"}}</option>
             {{range .Integrations}}
             <option value="{{.ID}}">{{.Name}}</option>
             {{end}}
         </select>
     </div>
     <div class="form-group">
-        <label for="engine">Движок</label>
+        <label for="engine">{{T "Engine"}}</label>
         <select name="engine" id="engine" required>
             <option value="javascript">JavaScript (Goja)</option>
             <option value="starlark">Starlark (Python-like)</option>
         </select>
     </div>
     <div class="form-group">
-        <label for="script">Скрипт</label>
+        <label for="script">{{T "Script"}}</label>
         <textarea name="script" id="script" rows="15" style="width: 100%; font-family: monospace;"></textarea>
     </div>
-    <button type="submit" class="btn">Создать сборщика</button>
+    <button type="submit" class="btn">{{T "Create Collector"}}</button>
 </form>
 
-<h2>Существующие сборщики</h2>
+<h2>{{T "Existing Collectors"}}</h2>
 {{if .Collectors}}
 <table>
     <thead>
         <tr>
-            <th>Название</th>
-            <th>Расписание</th>
-            <th>Интеграция</th>
-            <th>Движок</th>
-            <th>Создан</th>
-            <th>Действие</th>
+            <th>{{T "Name"}}</th>
+            <th>{{T "Schedule"}}</th>
+            <th>{{T "Integration"}}</th>
+            <th>{{T "Engine"}}</th>
+            <th>{{T "Created"}}</th>
+            <th>{{T "Action"}}</th>
         </tr>
     </thead>
     <tbody>
@@ -66,8 +66,8 @@
             <td>{{.Engine}}</td>
             <td>{{.CreatedAt.Format "2006-01-02 15:04:05"}}</td>
             <td>
-                <form action="/admin/collectors/{{.ID}}/delete" method="post" onsubmit="return confirm('Вы уверены, что хотите удалить этого сборщика?');">
-                    <button type="submit" class="btn btn-danger">Удалить</button>
+                <form action="/admin/collectors/{{.ID}}/delete" method="post" onsubmit="return confirm('{{T `Are you sure you want to delete this collector?`}}');">
+                    <button type="submit" class="btn btn-danger">{{T "Delete"}}</button>
                 </form>
             </td>
         </tr>
@@ -75,7 +75,7 @@
     </tbody>
 </table>
 {{else}}
-<p>Пока не создано ни одного сборщика.</p>
+<p>{{T "No collectors created yet."}}</p>
 {{end}}
 
 {{end}}

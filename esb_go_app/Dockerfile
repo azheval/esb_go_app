@@ -9,7 +9,7 @@ RUN go mod download
 COPY . .
 
 # Pass the version number as a build argument: --build-arg VERSION=v1.0.0
-ARG VERSION="2.0.1"
+ARG VERSION="3.0.0"
 RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags "-s -w -X main.version=${VERSION}" -o /app/main .
 
 
@@ -22,6 +22,7 @@ WORKDIR /app
 
 COPY --from=builder /app/main .
 COPY --from=builder /app/templates /app/templates/
+COPY --from=builder /app/locales /app/locales/
 COPY config.json .
 
 EXPOSE 8080

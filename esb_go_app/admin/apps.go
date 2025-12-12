@@ -51,6 +51,7 @@ func AppRoutes(h *Handler, w http.ResponseWriter, r *http.Request, parts []strin
 
 // handleShowApp displays details for a specific application.
 func (h *Handler) handleShowApp(w http.ResponseWriter, r *http.Request, appID string) {
+	lang := h.determineLanguage(r)
 	app, err := h.Store.GetApplicationByID(appID)
 	if err != nil || app == nil {
 		h.Logger.Error("failed to get application", "error", err, "app_id", appID)
@@ -60,17 +61,17 @@ func (h *Handler) handleShowApp(w http.ResponseWriter, r *http.Request, appID st
 
 	channels, err := h.Store.GetChannelsByAppID(appID)
 	if err != nil {
-		h.renderError(w, "app_details.html", fmt.Sprintf("Failed to retrieve channels: %v", err), http.StatusInternalServerError)
+		h.renderError(w, "app_details.html", fmt.Sprintf("Failed to retrieve channels: %v", err), http.StatusInternalServerError, r)
 		return
 	}
 
-	data := PageData{Application: app, Channels: channels}
+	data := PageData{Application: app, Channels: channels, AcceptLanguage: lang}
 
 	status := r.URL.Query().Get("status")
 	if status == "channel_created" {
-		data.StatusMessage = "Канал успешно создан."
+		data.StatusMessage = h.I18n.Sprintf(lang, "Channel created successfully.")
 	} else if status == "channel_deleted" {
-		data.StatusMessage = "Канал удален."
+		data.StatusMessage = h.I18n.Sprintf(lang, "Channel deleted.")
 	}
 
 	h.renderTemplate(w, "app_details.html", data)
@@ -78,13 +79,14 @@ func (h *Handler) handleShowApp(w http.ResponseWriter, r *http.Request, appID st
 
 // handleCreateApp creates a new application.
 func (h *Handler) handleCreateApp(w http.ResponseWriter, r *http.Request) {
+	lang := h.determineLanguage(r)
 	if err := r.ParseForm(); err != nil {
-		h.renderError(w, "admin.html", "Failed to parse form.", http.StatusBadRequest)
+		h.renderError(w, "admin.html", "Failed to parse form.", http.StatusBadRequest, r)
 		return
 	}
 	appName := r.FormValue("name")
 	if appName == "" {
-		h.renderError(w, "admin.html", "Application name cannot be empty.", http.StatusBadRequest)
+		h.renderError(w, "admin.html", h.I18n.Sprintf(lang, "Application name cannot be empty."), http.StatusBadRequest, r)
 		return
 	}
 
@@ -96,7 +98,7 @@ func (h *Handler) handleCreateApp(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.Store.CreateApplication(app); err != nil {
-		h.renderError(w, "admin.html", fmt.Sprintf("Failed to create application: %v", err), http.StatusInternalServerError)
+		h.renderError(w, "admin.html", fmt.Sprintf("Failed to create application: %v", err), http.StatusInternalServerError, r)
 		return
 	}
 
@@ -106,13 +108,14 @@ func (h *Handler) handleCreateApp(w http.ResponseWriter, r *http.Request) {
 
 // handleUpdateApp updates an application's details.
 func (h *Handler) handleUpdateApp(w http.ResponseWriter, r *http.Request, appID string) {
+	lang := h.determineLanguage(r)
 	if err := r.ParseForm(); err != nil {
-		h.renderError(w, "app_details.html", "Failed to parse form.", http.StatusBadRequest)
+		h.renderError(w, "app_details.html", "Failed to parse form.", http.StatusBadRequest, r)
 		return
 	}
 	appName := r.FormValue("name")
 	if appName == "" {
-		h.renderError(w, "app_details.html", "Application name cannot be empty.", http.StatusBadRequest)
+		h.renderError(w, "app_details.html", h.I18n.Sprintf(lang, "Application name cannot be empty."), http.StatusBadRequest, r)
 		return
 	}
 
@@ -122,7 +125,7 @@ func (h *Handler) handleUpdateApp(w http.ResponseWriter, r *http.Request, appID 
 	}
 
 	if err := h.Store.UpdateApplication(app); err != nil {
-		h.renderError(w, "app_details.html", fmt.Sprintf("Failed to update application: %v", err), http.StatusInternalServerError)
+		h.renderError(w, "app_details.html", fmt.Sprintf("Failed to update application: %v", err), http.StatusInternalServerError, r)
 		return
 	}
 
@@ -133,7 +136,7 @@ func (h *Handler) handleUpdateApp(w http.ResponseWriter, r *http.Request, appID 
 // handleDeleteApp deletes an application.
 func (h *Handler) handleDeleteApp(w http.ResponseWriter, r *http.Request, appID string) {
 	if err := h.Store.DeleteApplication(appID); err != nil {
-		h.renderError(w, "admin.html", fmt.Sprintf("Failed to delete application: %v", err), http.StatusInternalServerError)
+		h.renderError(w, "admin.html", fmt.Sprintf("Failed to delete application: %v", err), http.StatusInternalServerError, r)
 		return
 	}
 	h.Logger.Info("application deleted successfully", "app_id", appID)

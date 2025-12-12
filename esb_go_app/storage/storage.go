@@ -145,6 +145,10 @@ func (s *Store) createTablesIfNotExist() error {
 			FOREIGN KEY (transformation_id) REFERENCES transformations(id) ON DELETE SET NULL,
 			FOREIGN KEY (integration_id) REFERENCES integrations(id) ON DELETE SET NULL
 		);`,
+		`CREATE TABLE IF NOT EXISTS settings (
+			key TEXT PRIMARY KEY,
+			value TEXT
+		);`,
 	}
 
 	for _, tableSQL := range tables {
